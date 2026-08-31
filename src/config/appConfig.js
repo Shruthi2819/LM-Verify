@@ -17,8 +17,11 @@ export const appConfig = {
  */
 export function getPublicVerificationUrl(certificateId) {
   if (!certificateId) return "";
-  const baseUrl =
+  let baseUrl =
     (typeof import.meta !== "undefined" && import.meta?.env?.VITE_PUBLIC_APP_URL) ||
-    (typeof window !== "undefined" ? window.location.origin : "http://localhost:5175");
-  return `${baseUrl}/verify/certificate/${encodeURIComponent(certificateId.trim())}`;
+    (typeof window !== "undefined"
+      ? `${window.location.origin}${import.meta?.env?.BASE_URL || "/"}`
+      : "http://localhost:5175/");
+  baseUrl = baseUrl.replace(/\/+$/, "");
+  return `${baseUrl}/#/verify/certificate/${encodeURIComponent(certificateId.trim())}`;
 }
