@@ -6,6 +6,7 @@ export const ROUTES = {
   HOME: "/",
   VERIFY: "/verify",
   VERIFY_CERT: "/verify/:certificateId",
+  VERIFY_CERT_FULL: "/verify/certificate/:certificateId",
 
   // Auth
   LOGIN: "/login",
@@ -49,18 +50,25 @@ export const ROUTES = {
   LMO_CERTIFICATE_DETAIL: "/lmo/certificates/:certificateId",
   LMO_NOTIFICATIONS: "/lmo/notifications",
   LMO_PROFILE: "/lmo/profile",
+  LMO_SYNC: "/lmo/sync",
 
   // GATC
   GATC_DASHBOARD: "/gatc/dashboard",
   GATC_APPLICATIONS: "/gatc/applications",
   GATC_APPLICATION_DETAIL: "/gatc/applications/:applicationId",
+  GATC_TASKS: "/gatc/tasks",
+  GATC_TASK_DETAIL: "/gatc/tasks/:taskId",
   GATC_SCHEDULE: "/gatc/schedule",
   GATC_INSPECTIONS: "/gatc/inspections",
   GATC_INSPECTION_DETAIL: "/gatc/inspections/:inspectionId",
+  GATC_REPORTS: "/gatc/reports",
+  GATC_REPORT_DETAIL: "/gatc/reports/:reportId",
+  GATC_AI_INSIGHTS: "/gatc/ai-insights",
   GATC_CERTIFICATES: "/gatc/certificates",
   GATC_CERTIFICATE_DETAIL: "/gatc/certificates/:certificateId",
   GATC_NOTIFICATIONS: "/gatc/notifications",
   GATC_PROFILE: "/gatc/profile",
+  GATC_SYNC: "/gatc/sync",
 
   // Admin
   ADMIN_DASHBOARD: "/admin/dashboard",
@@ -79,9 +87,14 @@ export const ROUTES = {
   ADMIN_NOTIFICATIONS: "/admin/notifications",
   ADMIN_PROFILE: "/admin/profile",
   ADMIN_USERS: "/admin/users",
+  ADMIN_USER_DETAIL: "/admin/users/:userId",
   ADMIN_BUSINESSES: "/admin/businesses",
   ADMIN_REPORTS: "/admin/reports",
   ADMIN_SETTINGS: "/admin/settings",
+  ADMIN_SECURITY: "/admin/security",
+  ADMIN_OFFLINE_SYNC: "/admin/offline-sync",
+  ADMIN_EVIDENCE_CHAINS: "/admin/evidence-chains",
+  ADMIN_COMPLIANCE: "/admin/compliance",
 
   // Error
   UNAUTHORIZED: "/unauthorized",

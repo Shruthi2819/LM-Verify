@@ -1,12 +1,14 @@
 import { useState, useEffect } from "react";
 import { gatcService } from "../../services/gatcService";
+import { useTheme } from "../../context/ThemeContext";
 import Card from "../../components/common/Card";
 import Breadcrumbs from "../../components/navigation/Breadcrumbs";
 import { PanelSkeleton } from "../../components/common/SkeletonLoader";
-import { ShieldCheck, Award, Mail, Phone, Calendar } from "lucide-react";
+import { ShieldCheck, Award, Mail, Phone, Calendar, Sun, Moon } from "lucide-react";
 import toast from "react-hot-toast";
 
 function GATCProfile() {
+  const { theme, setTheme } = useTheme();
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
 
@@ -37,6 +39,13 @@ function GATCProfile() {
     <div className="space-y-6 page-enter max-w-4xl mx-auto">
       <Breadcrumbs items={[{ label: "Dashboard", path: "/gatc/dashboard" }, { label: "Profile" }]} />
 
+      {profile && new Date(profile.accreditationExpiry) < new Date() && (
+        <div className="bg-red-50 border border-red-200 rounded-xl p-4 text-xs text-red-750 flex flex-col gap-1.5 shadow-sm">
+          <span className="font-bold flex items-center gap-1">⚠️ NABL LICENSE ACCREDITATION EXPIRED</span>
+          <p>Your Government Approved Test Centre authorization has expired. Official calibration testing actions are restricted. Please contact administrative authority.</p>
+        </div>
+      )}
+
       <div>
         <h1 className="text-xl font-bold text-slate-800">Test Centre Profile</h1>
         <p className="text-sm text-slate-500 mt-0.5">Manage calibration facility parameters and NABL accreditations</p>
@@ -63,6 +72,41 @@ function GATCProfile() {
               <div className="flex justify-between">
                 <span className="text-slate-400">Accreditation Expiry:</span>
                 <span className="font-semibold text-slate-700">{profile.accreditationExpiry}</span>
+              </div>
+            </div>
+          </Card>
+
+          {/* Theme appearance settings */}
+          <Card>
+            <div className="border-b border-slate-100 pb-2 mb-3">
+              <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider">Appearance Settings</h3>
+            </div>
+            <div className="space-y-3">
+              <p className="text-[10px] text-slate-500">Choose your preferred interface theme style.</p>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setTheme("light")}
+                  className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-lg border text-xs font-semibold cursor-pointer transition-colors ${
+                    theme === "light"
+                      ? "bg-blue-600 border-blue-600 text-white"
+                      : "bg-white border-slate-200 text-slate-750 hover:bg-slate-50"
+                  }`}
+                >
+                  <Sun size={13} /> Light
+                </button>
+                <button
+                  onClick={() => setTheme("dark")}
+                  className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-lg border text-xs font-semibold cursor-pointer transition-colors ${
+                    theme === "dark"
+                      ? "bg-blue-600 border-blue-600 text-white"
+                      : "bg-white border-slate-200 text-slate-750 hover:bg-slate-50"
+                  }`}
+                >
+                  <Moon size={13} /> Dark
+                </button>
+              </div>
+              <div className="text-[9px] text-slate-400 font-medium">
+                Active theme: <span className="capitalize font-bold text-slate-700">{theme}</span>
               </div>
             </div>
           </Card>

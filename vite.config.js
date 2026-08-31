@@ -7,4 +7,8 @@ export default defineConfig({
     tailwindcss(),
     react(),
   ],
+  server: {
+    host: true, // Listen on 0.0.0.0 so phone on LAN can access verification gateway
+    port: 5175,
+  },
 })

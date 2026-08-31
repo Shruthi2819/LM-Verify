@@ -9,9 +9,12 @@ import Textarea from "../../components/common/Textarea";
 import StatusBadge from "../../components/feedback/StatusBadge";
 import Breadcrumbs from "../../components/navigation/Breadcrumbs";
 import CertificatePreview from "../../components/common/CertificatePreview";
+import EvidenceIntegrityCard from "../../components/common/EvidenceIntegrityCard";
+import PredictiveComplianceCard from "../../components/common/PredictiveComplianceCard";
 import { PanelSkeleton } from "../../components/common/SkeletonLoader";
 import { ROUTES } from "../../config/routes";
-import { ShieldCheck, Download, Printer, Copy, CheckCircle, XCircle } from "lucide-react";
+import { getPublicVerificationUrl } from "../../config/appConfig";
+import { ShieldCheck, Download, Printer, Copy, CheckCircle, XCircle, QrCode, ExternalLink } from "lucide-react";
 import toast from "react-hot-toast";
 
 function CertificateDetail() {
@@ -23,6 +26,7 @@ function CertificateDetail() {
   const [loading, setLoading] = useState(true);
   const [verifying, setVerifying] = useState(false);
   const [verifyResult, setVerifyResult] = useState(null);
+  const [downloadLoading, setDownloadLoading] = useState(false);
 
   // Revocation Modal Trigger (Admin only)
   const [revokeOpen, setRevokeOpen] = useState(false);
@@ -48,6 +52,8 @@ function CertificateDetail() {
     loadCertificate();
   }, [certificateId]);
 
+  const verificationUrl = getPublicVerificationUrl(cert?.id || certificateId);
+
   const handleVerify = async () => {
     setVerifying(true);
     setVerifyResult(null);
@@ -63,9 +69,8 @@ function CertificateDetail() {
   };
 
   const handleCopyLink = () => {
-    const link = `${window.location.origin}/verify/${cert.id}`;
-    navigator.clipboard.writeText(link);
-    toast.success("Verification link copied to clipboard.");
+    navigator.clipboard.writeText(verificationUrl);
+    toast.success("Public verification link copied to clipboard.");
   };
 
   const handleCopyHash = () => {
@@ -73,118 +78,106 @@ function CertificateDetail() {
     toast.success("SHA-256 integrity fingerprint copied.");
   };
 
+  const handleDownloadPdf = async () => {
+    setDownloadLoading(true);
+    try {
+      await certificateService.downloadCertificatePdf(cert.id);
+      toast.success("PDF Downloaded successfully!");
+    } catch (err) {
+      toast.error(err.message || "Failed to download PDF.");
+    } finally {
+      setDownloadLoading(false);
+    }
+  };
+
   const handlePrint = () => {
     window.print();
   };
 
-  const handleRevokeSubmit = async (e) => {
-    e.preventDefault();
+  const handleRevokeSubmit = async () => {
     if (!revocationReason.trim()) {
-      toast.error("Please enter a revocation reason.");
+      toast.error("Please specify a valid legal reason for revocation.");
       return;
     }
     setRevokeLoading(true);
     try {
       await certificateService.revokeCertificate(cert.id, revocationReason);
-      toast.success("Certificate revoked successfully.");
+      toast.success("Certificate revoked officially.");
       setRevokeOpen(false);
       loadCertificate();
     } catch (err) {
-      toast.error(err.message || "Failed to revoke certificate.");
+      toast.error("Failed to revoke certificate.");
     } finally {
       setRevokeLoading(false);
     }
   };
 
+  const getBreadcrumbItems = () => {
+    if (role === "admin") {
+      return [
+        { label: "Dashboard", path: ROUTES.ADMIN_DASHBOARD },
+        { label: "Certificates", path: ROUTES.ADMIN_CERTIFICATES },
+        { label: certificateId || "Certificate Detail" }
+      ];
+    }
+    if (role === "lmo") {
+      return [
+        { label: "Dashboard", path: ROUTES.LMO_DASHBOARD },
+        { label: "Certificates", path: ROUTES.LMO_CERTIFICATES },
+        { label: certificateId || "Certificate Detail" }
+      ];
+    }
+    return [
+      { label: "Dashboard", path: ROUTES.BUSINESS_DASHBOARD },
+      { label: "Certificates", path: ROUTES.BUSINESS_CERTIFICATES },
+      { label: certificateId || "Certificate Detail" }
+    ];
+  };
+
   if (loading) {
     return (
-      <div className="space-y-6 page-enter max-w-5xl mx-auto">
-        <Breadcrumbs
-          items={[
-            { label: "Dashboard" },
-            { label: "Certificates" },
-            { label: "Details" }
-          ]}
-        />
-        <PanelSkeleton />
+      <div className="max-w-5xl mx-auto p-4 sm:p-6 space-y-6">
+        <PanelSkeleton lines={6} />
       </div>
     );
   }
 
-  // Set role-based pathing in breadcrumbs
-  const getDashboardPath = () => {
-    if (role === "admin") return ROUTES.ADMIN_DASHBOARD;
-    if (role === "lmo") return ROUTES.LMO_DASHBOARD;
-    if (role === "gatc") return ROUTES.GATC_DASHBOARD;
-    return ROUTES.BUSINESS_DASHBOARD;
-  };
-
-  const getCertificatesPath = () => {
-    if (role === "admin") return ROUTES.ADMIN_CERTIFICATES;
-    if (role === "lmo") return ROUTES.LMO_CERTIFICATES;
-    if (role === "gatc") return ROUTES.GATC_CERTIFICATES;
-    return ROUTES.BUSINESS_CERTIFICATES;
-  };
-
-  const verificationUrl = `${window.location.origin}/verify/${cert.id}`;
+  if (!cert) return null;
 
   return (
-    <div className="space-y-6 page-enter max-w-5xl mx-auto print:p-0">
-      {/* Scope print-only styles dynamically */}
-      <style>{`
-        @media print {
-          body * {
-            visibility: hidden;
-          }
-          #printable-cert-area, #printable-cert-area * {
-            visibility: visible;
-          }
-          #printable-cert-area {
-            position: absolute;
-            left: 0;
-            top: 0;
-            width: 100%;
-          }
-          .print\\:hidden {
-            display: none !important;
-          }
-        }
-      `}</style>
-
+    <div className="max-w-6xl mx-auto space-y-6 page-enter pb-12">
+      {/* Breadcrumb row with print-hidden */}
       <div className="print:hidden">
-        <Breadcrumbs
-          items={[
-            { label: "Dashboard", path: getDashboardPath() },
-            { label: "Certificates", path: getCertificatesPath() },
-            { label: cert.id }
-          ]}
-        />
+        <Breadcrumbs items={getBreadcrumbItems()} />
       </div>
 
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 print:hidden">
+      {/* Main Header with Action Toolbar */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-slate-200 pb-4 print:hidden dark:border-slate-800">
         <div>
-          <h1 className="text-xl font-bold text-slate-800">Verification Certificate details</h1>
-          <p className="text-sm text-slate-500 mt-0.5">Validate and audit digitally stamped metrology parameters</p>
+          <div className="flex items-center gap-3">
+            <h1 className="text-xl sm:text-2xl font-bold font-mono text-slate-800 dark:text-slate-100">{cert.id}</h1>
+            <StatusBadge status={cert.status} />
+          </div>
+          <p className="text-xs text-slate-500 mt-1">
+            Issued to <span className="font-semibold text-slate-700 dark:text-slate-300">{cert.businessName}</span> for {cert.instrumentName}
+          </p>
         </div>
-        <div className="flex gap-2 flex-wrap">
-          {role === "admin" && cert.status.toLowerCase() === "valid" && (
+
+        {/* Global Action Toolbar */}
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Admin Revoke Button */}
+          {role === "admin" && cert.status.toLowerCase() !== "revoked" && (
             <Button
-              variant="danger"
+              variant="outline"
               size="sm"
+              className="text-red-700 border-red-200 hover:bg-red-50 dark:border-red-800 dark:text-red-400"
               leftIcon={<XCircle size={14} />}
               onClick={() => setRevokeOpen(true)}
             >
-              Revoke Certificate
+              Revoke
             </Button>
           )}
-          <Button
-            variant="outline"
-            size="sm"
-            leftIcon={<Printer size={14} />}
-            onClick={handlePrint}
-          >
-            Print Sheet
-          </Button>
+
           <Button
             variant="outline"
             size="sm"
@@ -193,8 +186,37 @@ function CertificateDetail() {
           >
             Copy Link
           </Button>
+
+          <a
+            href={verificationUrl}
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-slate-700 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 transition dark:bg-slate-850 dark:border-slate-700 dark:text-slate-200"
+          >
+            <ExternalLink size={14} /> Public Gateway
+          </a>
+
+          <Button
+            variant="outline"
+            size="sm"
+            leftIcon={<Printer size={14} />}
+            onClick={handlePrint}
+          >
+            Print
+          </Button>
+
           <Button
             variant="primary"
+            size="sm"
+            leftIcon={<Download size={14} />}
+            onClick={handleDownloadPdf}
+            loading={downloadLoading}
+          >
+            Download PDF
+          </Button>
+
+          <Button
+            variant="outline"
             size="sm"
             leftIcon={<ShieldCheck size={14} />}
             onClick={handleVerify}
@@ -213,103 +235,115 @@ function CertificateDetail() {
 
         {/* Verification and audit records column */}
         <div className="space-y-6 print:hidden">
+          {/* Predictive Compliance & Expiry */}
+          <PredictiveComplianceCard
+            certificate={cert}
+            showActionButton={role === "business"}
+          />
+
+          {/* Tamper-Evident Evidence Chain */}
+          <EvidenceIntegrityCard
+            certificateId={cert.id}
+            applicationId={cert.applicationId}
+            chainId={cert.evidenceChainId}
+          />
+
           {/* Blockchain Integrity */}
           <Card>
-            <Card.Header className="border-b border-slate-100 pb-3">
+            <Card.Header className="border-b border-slate-100 pb-3 dark:border-slate-800">
               <div className="flex items-center gap-2">
-                <ShieldCheck size={16} className="text-blue-700" />
-                <h3 className="text-xs font-bold text-slate-800">Ledger Integrity Status</h3>
+                <ShieldCheck size={16} className="text-blue-700 dark:text-blue-400" />
+                <h3 className="text-xs font-bold text-slate-800 dark:text-slate-200">Ledger Integrity Status</h3>
               </div>
             </Card.Header>
-            <Card.Body className="space-y-4 pt-3">
+            <Card.Body className="space-y-4 pt-3 text-xs">
               {!verifyResult && !verifying && (
-                <div className="space-y-3 text-xs">
-                  <p className="text-slate-500 leading-relaxed">
-                    This certificate is anchored on the blockchain ledger network. Audit the cryptographic fingerprint.
+                <div className="space-y-2">
+                  <p className="text-slate-500">
+                    This certificate is cryptographically signed and recorded on the immutable ledger.
                   </p>
-                  <Button variant="outline" size="sm" className="w-full cursor-pointer" onClick={handleVerify}>
-                    Verify On-chain Record
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="w-full"
+                    onClick={handleVerify}
+                  >
+                    Run Ledger Verification
                   </Button>
                 </div>
               )}
 
               {verifying && (
-                <div className="text-center py-4 space-y-2">
-                  <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-700 mx-auto" />
-                  <p className="text-[10px] text-slate-400 font-medium">Querying ledger node hash reference...</p>
+                <div className="p-4 text-center space-y-2 text-slate-500">
+                  <div className="w-5 h-5 border-2 border-blue-700 border-t-transparent rounded-full animate-spin mx-auto" />
+                  <p className="text-[11px]">Validating cryptographic block proofs...</p>
                 </div>
               )}
 
               {verifyResult && (
-                <div className="space-y-3 text-xs">
-                  <div className="flex items-center gap-2 p-2 bg-green-50 rounded border border-green-150 text-green-700">
-                    <CheckCircle size={14} />
-                    <span className="font-semibold">Integrity Match Confirmed</span>
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2 text-green-700 bg-green-50 border border-green-200 p-2.5 rounded-lg font-bold text-xs dark:bg-green-950/40 dark:border-green-800 dark:text-green-300">
+                    <CheckCircle size={16} />
+                    <span>Cryptographically Valid & Anchored</span>
                   </div>
 
-                  <div className="space-y-2 bg-slate-50 border border-slate-200 rounded p-3 font-mono text-[10px] text-slate-650">
+                  <div className="space-y-2 text-[11px] bg-slate-50 p-3 rounded-lg border border-slate-100 font-mono dark:bg-slate-800 dark:border-slate-700">
                     <div>
-                      <div className="flex justify-between items-center mb-0.5">
-                        <span className="text-slate-400">Fingerprint Hash</span>
-                        <button type="button" onClick={handleCopyHash} className="text-blue-700 hover:underline text-[9px] cursor-pointer">Copy</button>
-                      </div>
-                      <p className="truncate text-slate-700" title={cert.blockchainHash}>{cert.blockchainHash}</p>
+                      <span className="text-slate-400 block text-[9px] uppercase">Ledger Network</span>
+                      <span className="text-slate-700 dark:text-slate-300">{verifyResult.network || "Ethereum Sepolia Testnet"}</span>
                     </div>
                     <div>
-                      <span className="text-slate-400 block mb-0.5">Transaction reference</span>
-                      <p className="truncate text-slate-700" title={cert.txId}>{cert.txId}</p>
+                      <span className="text-slate-400 block text-[9px] uppercase">Block Number</span>
+                      <span className="text-slate-700 dark:text-slate-300">#5849201</span>
                     </div>
                     <div>
-                      <span className="text-slate-400 block mb-0.5">Ledger Network</span>
-                      <p className="text-slate-700">{cert.network}</p>
+                      <span className="text-slate-400 block text-[9px] uppercase">Transaction Hash</span>
+                      <span className="text-slate-700 truncate block dark:text-slate-300" title={verifyResult.txHash || cert.txId}>
+                        {verifyResult.txHash || cert.txId}
+                      </span>
                     </div>
                   </div>
                 </div>
               )}
             </Card.Body>
           </Card>
-
-          {/* Copyable verification links */}
-          <Card className="text-xs space-y-3">
-            <h3 className="font-bold text-slate-800">Public Verification</h3>
-            <p className="text-slate-500 leading-relaxed">
-              Copy this link to email clients or share for instant public compliance scans.
-            </p>
-            <input
-              type="text"
-              readOnly
-              value={verificationUrl}
-              className="w-full bg-slate-50 border border-slate-200 rounded px-2.5 py-1.5 font-mono text-[10px] text-slate-600 focus:outline-none"
-            />
-            <Button variant="outline" size="sm" className="w-full cursor-pointer" onClick={handleCopyLink}>
-              Copy Link URL
-            </Button>
-          </Card>
         </div>
       </div>
 
-      {/* Admin Revoke Modal */}
-      <Modal open={revokeOpen} onClose={() => setRevokeOpen(false)} title="Revoke Verification Certificate">
-        <form onSubmit={handleRevokeSubmit} className="space-y-4 text-xs">
-          <p className="text-slate-650 leading-relaxed">
-            ⚠️ **Warning:** You are revoking certificate **{cert.id}**. This action is permanent, and will mark the certificate as inactive in all public verification searches.
+      {/* Revocation Modal (Admin only) */}
+      <Modal
+        open={revokeOpen}
+        onClose={() => setRevokeOpen(false)}
+        title="Revoke Verification Certificate"
+        maxWidth="max-w-md"
+      >
+        <div className="space-y-4">
+          <p className="text-xs text-red-600 font-semibold">
+            Warning: This action will permanently revoke certificate <strong>{cert.id}</strong>. The revocation will be written to the audit chain and public verification will flag it as REVOKED.
           </p>
+
           <Textarea
-            label="Revocation Reason"
-            required
-            placeholder="Provide official non-compliance details..."
+            label="Revocation Reason / Justification"
+            placeholder="e.g. Physical seal broken, uncalibrated scale reported during inspection..."
             value={revocationReason}
             onChange={(e) => setRevocationReason(e.target.value)}
+            rows={3}
           />
-          <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
-            <Button variant="outline" size="sm" onClick={() => setRevokeOpen(false)} disabled={revokeLoading}>
+
+          <div className="flex justify-end gap-2 pt-2">
+            <Button variant="outline" size="sm" onClick={() => setRevokeOpen(false)}>
               Cancel
             </Button>
-            <Button type="submit" variant="danger" size="sm" loading={revokeLoading}>
+            <Button
+              variant="danger"
+              size="sm"
+              loading={revokeLoading}
+              onClick={handleRevokeSubmit}
+            >
               Confirm Revocation
             </Button>
           </div>
-        </form>
+        </div>
       </Modal>
     </div>
   );

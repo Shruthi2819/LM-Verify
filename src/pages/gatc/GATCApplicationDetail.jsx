@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { gatcService } from "../../services/gatcService";
+import { certificateService } from "../../services/certificateService";
 import Card from "../../components/common/Card";
 import Button from "../../components/common/Button";
 import StatusBadge from "../../components/feedback/StatusBadge";
@@ -13,7 +14,7 @@ import Modal from "../../components/common/Modal";
 import { PanelSkeleton } from "../../components/common/SkeletonLoader";
 import { ROUTES, buildPath } from "../../config/routes";
 import { formatDate } from "../../utils/helpers";
-import { Scale, Calendar, User, FileText, FileClock, Clock } from "lucide-react";
+import { Scale, Calendar, User, FileText, FileClock, Clock, Award } from "lucide-react";
 import toast from "react-hot-toast";
 
 function GATCApplicationDetail() {
@@ -21,17 +22,44 @@ function GATCApplicationDetail() {
   const navigate = useNavigate();
   const [app, setApp] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [associatedTestId, setAssociatedTestId] = useState(null);
+  const [isExpired, setIsExpired] = useState(false);
 
   // Scheduling Modal
   const [scheduleModalOpen, setScheduleModalOpen] = useState(false);
   const [scheduledDate, setScheduledDate] = useState("");
   const [scheduledTime, setScheduledTime] = useState("11:00 AM");
   const [modalLoading, setModalLoading] = useState(false);
+  const [downloadLoading, setDownloadLoading] = useState(false);
+
+  const handleDownloadPdf = async () => {
+    setDownloadLoading(true);
+    try {
+      await certificateService.downloadCertificatePdf(app.certificateId);
+      toast.success("PDF Downloaded successfully!");
+    } catch (err) {
+      toast.error(err.message || "Failed to download PDF.");
+    } finally {
+      setDownloadLoading(false);
+    }
+  };
 
   const loadApplication = async () => {
     try {
       const data = await gatcService.getApplication(applicationId);
       setApp(data);
+
+      const testsData = await gatcService.getInspections();
+      const tests = Array.isArray(testsData) ? testsData : (testsData?.items || []);
+      const matched = tests.find(t => t.applicationId === data.id);
+      if (matched) {
+        setAssociatedTestId(matched.id);
+      }
+
+      const profileData = await gatcService.getProfile();
+      if (profileData && new Date(profileData.accreditationExpiry) < new Date()) {
+        setIsExpired(true);
+      }
     } catch (err) {
       toast.error("Failed to load application.");
       navigate(ROUTES.GATC_APPLICATIONS);
@@ -63,7 +91,22 @@ function GATCApplicationDetail() {
     }
   };
 
-  if (loading) {
+  const handleStartTest = async () => {
+    if (isExpired) {
+      toast.error("NABL Accreditation has expired. Starting tests is prohibited.");
+      return;
+    }
+    const testId = associatedTestId || "TEST-2026-000109";
+    try {
+      await gatcService.startTest(testId);
+      toast.success("Calibration test session started!");
+      navigate(buildPath(ROUTES.GATC_INSPECTION_DETAIL, { inspectionId: testId }));
+    } catch (err) {
+      toast.error("Failed to start calibration session.");
+    }
+  };
+
+  if (loading || !app) {
     return (
       <div className="space-y-6 page-enter max-w-4xl mx-auto">
         <Breadcrumbs
@@ -87,6 +130,13 @@ function GATCApplicationDetail() {
           { label: app.id }
         ]}
       />
+
+      {isExpired && (
+        <div className="bg-red-50 border border-red-200 rounded-xl p-4 text-xs text-red-750 flex flex-col gap-1.5 shadow-sm">
+          <span className="font-bold flex items-center gap-1">⚠️ NABL LICENSE ACCREDITATION EXPIRED</span>
+          <p>Your Government Approved Test Centre authorization has expired. Starting tests or scheduling calibrations is restricted until authorization is updated.</p>
+        </div>
+      )}
 
       {/* Header Widget */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 bg-white border border-slate-200 rounded-xl p-5 shadow-sm">
@@ -119,11 +169,9 @@ function GATCApplicationDetail() {
             <Button
               variant="primary"
               size="sm"
-              onClick={() => {
-                navigate(buildPath(ROUTES.GATC_INSPECTION_DETAIL, { inspectionId: "TEST-2026-000109" }));
-              }}
+              onClick={handleStartTest}
             >
-              Perform Test
+              Start Test
             </Button>
           )}
         </div>
@@ -131,6 +179,64 @@ function GATCApplicationDetail() {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-6">
+          {/* Certificate Action Card */}
+          {(app.status === "APPROVED" || app.status === "CERTIFICATE_GENERATED") && (
+            <Card className={app.status === "CERTIFICATE_GENERATED" ? "border-green-200 bg-green-50/15" : "border-blue-200 bg-blue-50/15"}>
+              <Card.Header className={`border-b ${app.status === "CERTIFICATE_GENERATED" ? "border-green-150" : "border-blue-150"} pb-3 mb-4 flex justify-between items-center`}>
+                <div className="flex items-center gap-2">
+                  <Award size={16} className={app.status === "CERTIFICATE_GENERATED" ? "text-green-700" : "text-blue-700"} />
+                  <h2 className="text-sm font-bold text-slate-800">Compliance Verification Certificate</h2>
+                </div>
+                <span className={`text-[10px] ${app.status === "CERTIFICATE_GENERATED" ? "bg-green-100 text-green-800" : "bg-blue-100 text-blue-800"} px-2 py-0.5 rounded font-bold`}>
+                  {app.status === "CERTIFICATE_GENERATED" ? "VALID & SIGNED" : "AWAITING ISSUANCE"}
+                </span>
+              </Card.Header>
+              <Card.Body className="space-y-4 text-xs">
+                {app.status === "CERTIFICATE_GENERATED" ? (
+                  <>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div>
+                        <span className="text-[10px] text-slate-400 font-medium uppercase">Certificate ID</span>
+                        <p className="font-mono font-semibold text-slate-800 mt-0.5">{app.certificateId}</p>
+                      </div>
+                      <div>
+                        <span className="text-[10px] text-slate-400 font-medium uppercase">Expiration Date</span>
+                        <p className="text-slate-800 font-semibold mt-0.5">{app.certificateExpiry ? formatDate(app.certificateExpiry) : "N/A"}</p>
+                      </div>
+                    </div>
+                    <div className="flex gap-2 pt-2 border-t border-green-100">
+                      <Button
+                        variant="primary"
+                        size="sm"
+                        onClick={() => navigate(buildPath(ROUTES.GATC_CERTIFICATE_DETAIL, { certificateId: app.certificateId }))}
+                      >
+                        View Certificate
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handleDownloadPdf}
+                        loading={downloadLoading}
+                      >
+                        Download PDF
+                      </Button>
+                    </div>
+                  </>
+                ) : (
+                  <div className="space-y-2">
+                    <div className="flex justify-between items-center text-slate-700">
+                      <span>Certificate Status:</span>
+                      <span className="font-semibold text-blue-600">NOT GENERATED</span>
+                    </div>
+                    <p className="text-slate-500 text-[11px] leading-relaxed">
+                      This application has been approved. The official digital compliance certificate is being prepared by the assigned officer.
+                    </p>
+                  </div>
+                )}
+              </Card.Body>
+            </Card>
+          )}
+
           {/* Business Details */}
           <Card>
             <Card.Header className="border-b border-slate-100 pb-3 mb-4">

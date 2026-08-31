@@ -169,6 +169,122 @@ export const aiService = {
     } catch (error) {
       throw new Error(error.response?.data?.message || "AI Analysis endpoint failed.");
     }
+  },
+
+  async analyzeImage(file, registeredDb = {}) {
+    if (USE_MOCK) {
+      await delay(1200);
+      const name = file.name.toLowerCase();
+
+      // Default registered values fallbacks
+      const regSerial = registeredDb.serialNumber || "WS12345";
+      const regManuf = registeredDb.manufacturer || "ABC Instruments";
+      const regModel = registeredDb.model || "WM-200";
+      const regCapacity = registeredDb.capacity || "200 kg";
+
+      // 1. Simulate OCR extractions
+      let ocrSerial = regSerial;
+      let ocrManuf = regManuf;
+      let ocrModel = regModel;
+      let ocrCapacity = regCapacity;
+
+      let serialConfidence = 96;
+      let manufConfidence = 94;
+      let modelConfidence = 91;
+
+      // Demo condition changes based on file name triggers
+      if (name.includes("mismatch")) {
+        ocrSerial = regSerial === "WS12345" ? "WS12346" : "AWT-99211";
+      } else if (name.includes("blurry")) {
+        ocrSerial = regSerial.slice(0, -2) + "?345";
+        serialConfidence = 42;
+      }
+
+      // 2. Simulate CV findings
+      let instrumentDetected = "Detected";
+      let displayDetected = "Detected";
+      let sealStatus = "Visible (Intact)";
+      let damageStatus = "None Detected";
+
+      if (name.includes("unrecognized")) {
+        instrumentDetected = "Not Clearly Detected";
+      }
+      if (name.includes("damage")) {
+        damageStatus = "Potential casing crack detected";
+      }
+      if (name.includes("broken_seal")) {
+        sealStatus = "Potentially Damaged";
+      }
+
+      // 3. Compute database comparisons
+      const serialMatch = ocrSerial === regSerial ? "MATCH" : (serialConfidence < 50 ? "REVIEW_REQUIRED" : "MISMATCH");
+      const manufMatch = ocrManuf === regManuf ? "MATCH" : "REVIEW_REQUIRED";
+      const modelMatch = ocrModel === regModel ? "MATCH" : "REVIEW_REQUIRED";
+      const capacityMatch = ocrCapacity === regCapacity ? "MATCH" : "REVIEW_REQUIRED";
+
+      let overallResult = "MATCH";
+      let explanation = "All high-confidence extracted identity fields match the registered instrument details.";
+
+      if (serialMatch === "MISMATCH") {
+        overallResult = "MISMATCH";
+        explanation = "OCR serial number deviates from registered database record. Please physically inspect the identification plate.";
+      } else if (serialMatch === "REVIEW_REQUIRED" || serialConfidence < 50) {
+        overallResult = "REVIEW_REQUIRED";
+        explanation = "Low confidence extraction on serial plate text. Image quality is blurry or glared.";
+      } else if (damageStatus !== "None Detected" || sealStatus === "Potentially Damaged") {
+        overallResult = "REVIEW_REQUIRED";
+        explanation = "Potential physical casing damage or broken tamper seal detected by Vision core.";
+      }
+
+      return {
+        analysisId: `AN-VISION-${Date.now()}`,
+        status: "COMPLETED",
+        ocr: {
+          serialNumber: ocrSerial,
+          manufacturer: ocrManuf,
+          model: ocrModel,
+          capacity: ocrCapacity,
+          markings: "LM-IND-2026",
+          confidence: {
+            serialNumber: serialConfidence,
+            manufacturer: manufConfidence,
+            model: modelConfidence,
+            capacity: 95
+          }
+        },
+        vision: {
+          instrumentDetected,
+          displayDetected,
+          sealStatus,
+          damageStatus,
+          displayReading: "125.40 kg"
+        },
+        comparison: {
+          serialNumberResult: serialMatch,
+          manufacturerResult: manufMatch,
+          modelResult: modelMatch,
+          capacityResult: capacityMatch,
+          overallResult
+        },
+        confidence: Math.round((serialConfidence + manufConfidence + modelConfidence) / 3),
+        explanation,
+        modelName: "LM-Verify Vision-OCR Engine v1.8",
+        version: "1.8.2",
+        timestamp: new Date().toISOString()
+      };
+    }
+
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("registered", JSON.stringify(registeredDb));
+      const response = await api.post("/ai/inspection/analyze-image", formData, {
+        headers: { "Content-Type": undefined }
+      });
+      return response.data;
+    } catch (error) {
+      throw new Error(error.response?.data?.message || "AI Vision OCR analysis failed.");
+    }
   }
 };
 

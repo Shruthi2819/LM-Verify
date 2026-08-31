@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { applicationService } from "../../services/applicationService";
+import { certificateService } from "../../services/certificateService";
 import Card from "../../components/common/Card";
 import Button from "../../components/common/Button";
 import StatusBadge from "../../components/feedback/StatusBadge";
@@ -18,6 +19,19 @@ function ApplicationDetail() {
   const navigate = useNavigate();
   const [app, setApp] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [downloadLoading, setDownloadLoading] = useState(false);
+
+  const handleDownloadPdf = async () => {
+    setDownloadLoading(true);
+    try {
+      await certificateService.downloadCertificatePdf(app.certificateId);
+      toast.success("PDF Downloaded successfully!");
+    } catch (err) {
+      toast.error(err.message || "Failed to download PDF.");
+    } finally {
+      setDownloadLoading(false);
+    }
+  };
 
   useEffect(() => {
     async function loadApplication() {
@@ -155,37 +169,59 @@ function ApplicationDetail() {
           )}
 
           {/* Certificate Action Box */}
-          {app.status === "CERTIFICATE_GENERATED" && app.certificateId && (
-            <Card className="border-green-200 bg-green-50/15">
-              <Card.Header className="border-b border-green-150 pb-3 mb-4 flex justify-between items-center">
+          {(app.status === "APPROVED" || app.status === "CERTIFICATE_GENERATED") && (
+            <Card className={app.status === "CERTIFICATE_GENERATED" ? "border-green-200 bg-green-50/15" : "border-blue-200 bg-blue-50/15"}>
+              <Card.Header className={`border-b ${app.status === "CERTIFICATE_GENERATED" ? "border-green-150" : "border-blue-150"} pb-3 mb-4 flex justify-between items-center`}>
                 <div className="flex items-center gap-2">
-                  <Award size={16} className="text-green-700" />
-                  <h2 className="text-sm font-bold text-green-800">Generated Calibration Certificate</h2>
+                  <Award size={16} className={app.status === "CERTIFICATE_GENERATED" ? "text-green-700" : "text-blue-700"} />
+                  <h2 className="text-sm font-bold text-slate-800">Compliance Verification Certificate</h2>
                 </div>
-                <span className="text-[10px] bg-green-100 text-green-800 px-2 py-0.5 rounded font-bold">
-                  VALID & SIGNED
+                <span className={`text-[10px] ${app.status === "CERTIFICATE_GENERATED" ? "bg-green-100 text-green-800" : "bg-blue-100 text-blue-800"} px-2 py-0.5 rounded font-bold`}>
+                  {app.status === "CERTIFICATE_GENERATED" ? "VALID & SIGNED" : "AWAITING ISSUANCE"}
                 </span>
               </Card.Header>
               <Card.Body className="space-y-4 text-xs">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div>
-                    <span className="text-[10px] text-slate-400 font-medium uppercase">Certificate ID</span>
-                    <p className="font-mono font-semibold text-slate-800 mt-0.5">{app.certificateId}</p>
+                {app.status === "CERTIFICATE_GENERATED" ? (
+                  <>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div>
+                        <span className="text-[10px] text-slate-400 font-medium uppercase">Certificate ID</span>
+                        <p className="font-mono font-semibold text-slate-800 mt-0.5">{app.certificateId}</p>
+                      </div>
+                      <div>
+                        <span className="text-[10px] text-slate-400 font-medium uppercase">Expiration Date</span>
+                        <p className="text-slate-800 font-semibold mt-0.5">{app.certificateExpiry ? formatDate(app.certificateExpiry) : "N/A"}</p>
+                      </div>
+                    </div>
+                    <div className="flex gap-2 pt-2 border-t border-green-100">
+                      <Button
+                        variant="primary"
+                        size="sm"
+                        onClick={() => navigate(buildPath(ROUTES.BUSINESS_CERTIFICATE_DETAIL, { certificateId: app.certificateId }))}
+                      >
+                        View Calibration Certificate
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handleDownloadPdf}
+                        loading={downloadLoading}
+                      >
+                        Download PDF
+                      </Button>
+                    </div>
+                  </>
+                ) : (
+                  <div className="space-y-2">
+                    <div className="flex justify-between items-center text-slate-700">
+                      <span>Certificate Status:</span>
+                      <span className="font-semibold text-blue-600">NOT GENERATED</span>
+                    </div>
+                    <p className="text-slate-500 text-[11px] leading-relaxed">
+                      Your application has been approved. The official digital compliance certificate is being prepared by the assigned officer.
+                    </p>
                   </div>
-                  <div>
-                    <span className="text-[10px] text-slate-400 font-medium uppercase">Expiration Date</span>
-                    <p className="text-slate-800 font-semibold mt-0.5">{app.certificateExpiry ? formatDate(app.certificateExpiry) : "N/A"}</p>
-                  </div>
-                </div>
-                <div className="flex gap-2 pt-2 border-t border-green-100">
-                  <Button
-                    variant="primary"
-                    size="sm"
-                    onClick={() => navigate(buildPath(ROUTES.BUSINESS_CERTIFICATE_DETAIL, { certificateId: app.certificateId }))}
-                  >
-                    View Calibration Certificate
-                  </Button>
-                </div>
+                )}
               </Card.Body>
             </Card>
           )}

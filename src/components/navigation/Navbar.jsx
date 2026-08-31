@@ -1,8 +1,9 @@
 import { useState, useRef, useEffect } from "react";
-import { Bell, LogOut, User, Settings, ChevronDown, Menu } from "lucide-react";
+import { Bell, LogOut, User, Settings, ChevronDown, Menu, Sun, Moon } from "lucide-react";
 import { useNavigate, Link } from "react-router-dom";
 import { useAuth } from "../../hooks/useAuth";
 import { useNotifications } from "../../hooks/useNotifications";
+import { useTheme } from "../../context/ThemeContext";
 import { appConfig } from "../../config/appConfig";
 import { ROUTES } from "../../config/routes";
 import { getInitials, titleCase } from "../../utils/helpers";
@@ -15,6 +16,7 @@ import { getInitials, titleCase } from "../../utils/helpers";
  */
 function Navbar({ onMenuToggle }) {
   const { user, logout } = useAuth();
+  const { theme, toggleTheme } = useTheme();
   const { unreadCount } = useNotifications();
   const navigate = useNavigate();
   const [dropdownOpen, setDropdownOpen] = useState(false);
@@ -40,12 +42,31 @@ function Navbar({ onMenuToggle }) {
     setDropdownOpen(false);
     if (user?.role === "business") {
       navigate(ROUTES.BUSINESS_PROFILE);
+    } else if (user?.role === "lmo") {
+      navigate(ROUTES.LMO_PROFILE);
+    } else if (user?.role === "gatc") {
+      navigate(ROUTES.GATC_PROFILE);
+    } else if (user?.role === "admin") {
+      navigate(ROUTES.ADMIN_PROFILE);
+    }
+  };
+
+  const handleSettingsClick = () => {
+    setDropdownOpen(false);
+    if (user?.role === "admin") {
+      navigate(ROUTES.ADMIN_SETTINGS);
     }
   };
 
   const handleBellClick = () => {
     if (user?.role === "business") {
       navigate(ROUTES.BUSINESS_NOTIFICATIONS);
+    } else if (user?.role === "lmo") {
+      navigate(ROUTES.LMO_NOTIFICATIONS);
+    } else if (user?.role === "gatc") {
+      navigate(ROUTES.GATC_NOTIFICATIONS);
+    } else if (user?.role === "admin") {
+      navigate(ROUTES.ADMIN_NOTIFICATIONS);
     }
   };
 
@@ -78,6 +99,15 @@ function Navbar({ onMenuToggle }) {
       </div>
 
       <div className="flex-1" />
+
+      {/* Theme Toggle Button */}
+      <button
+        onClick={toggleTheme}
+        className="p-2 rounded-md text-slate-500 hover:bg-slate-100 transition-colors cursor-pointer"
+        aria-label={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+      >
+        {theme === "dark" ? <Sun size={18} /> : <Moon size={18} />}
+      </button>
 
       {/* Notification bell — real state-connected */}
       <button
@@ -132,7 +162,7 @@ function Navbar({ onMenuToggle }) {
             </div>
 
             <DropdownItem icon={<User size={14} />} label="Profile" onClick={handleProfileClick} />
-            <DropdownItem icon={<Settings size={14} />} label="Settings" onClick={() => setDropdownOpen(false)} />
+            <DropdownItem icon={<Settings size={14} />} label="Settings" onClick={handleSettingsClick} />
 
             <div className="border-t border-slate-100 mt-1 pt-1">
               <DropdownItem

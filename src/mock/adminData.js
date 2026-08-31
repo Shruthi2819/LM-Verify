@@ -92,11 +92,69 @@ export const mockAdminAuditLogs = [
     metadata: "Transaction hash 0x7c9a5b3f2e1d0c8b6a4f2e0d8c6b4a2f0e8d6c4b anchored on Sepolia."
   }
 ];
+export const mockAdminUsers = [
+  { id: "USR-0001", name: "Sunita Patil", email: "sunita@lmverify.gov.in", phone: "+91 22 2202 4432", role: "admin", organisation: "LM Verify Platform Administration", status: "Active", createdAt: "2024-01-10T12:00:00Z", lastLogin: "2026-08-30T10:00:00Z" },
+  { id: "USR-0002", name: "Priya Sharma", email: "priya@lmo-pune.gov.in", phone: "+91 99887 66551", role: "lmo", organisation: "Pune East Division", status: "Active", createdAt: "2024-05-12T11:00:00Z", lastLogin: "2026-08-29T14:20:00Z" },
+  { id: "USR-0003", name: "Anand Verma", email: "anand@nablgatc.in", phone: "+91 98765 43210", role: "gatc", organisation: "NABL Approved Test Centre, Pune", status: "Active", createdAt: "2024-06-15T09:00:00Z", lastLogin: "2026-08-30T09:30:00Z" },
+  { id: "USR-0004", name: "Rahul Kadam", email: "pune@steelindia.com", phone: "+91 91234 56789", role: "business", organisation: "Steel India Ltd.", status: "Active", createdAt: "2025-02-10T14:00:00Z", lastLogin: "2026-08-28T16:15:00Z" },
+  { id: "USR-0005", name: "Sameer Shah", email: "info@sahayadri.in", phone: "+91 99887 76655", role: "business", organisation: "Sahayadri Logistics Ltd.", status: "Suspended", createdAt: "2025-03-05T10:00:00Z", lastLogin: "2026-08-20T11:00:00Z" },
+  { id: "USR-0006", name: "Arun Mehta", email: "arun@lmo-pune.gov.in", phone: "+91 99887 66552", role: "lmo", organisation: "Pune South Division", status: "Active", createdAt: "2024-05-20T10:00:00Z", lastLogin: "2026-08-28T15:00:00Z" },
+  { id: "USR-0007", name: "Vikram Sarabhai", email: "vikram@mumbaimetrology.in", phone: "+91 22 2568 9012", role: "gatc", organisation: "Mumbai Metrology Lab", status: "Inactive", createdAt: "2024-11-01T08:00:00Z", lastLogin: "2026-08-01T12:00:00Z" }
+];
+
+export const mockAdminBusinesses = [
+  { id: "BUS-0001", businessName: "Steel India Ltd.", contactPerson: "Rahul Kadam", email: "pune@steelindia.com", phone: "+91 91234 56789", registrationStatus: "Approved", status: "Active", applicationsCount: 12, instrumentsCount: 8, certificatesCount: 6 },
+  { id: "BUS-0002", businessName: "Sahayadri Logistics Ltd.", contactPerson: "Sameer Shah", email: "info@sahayadri.in", phone: "+91 99887 76655", registrationStatus: "Under Review", status: "Suspended", applicationsCount: 4, instrumentsCount: 3, certificatesCount: 2 },
+  { id: "BUS-0003", businessName: "Reliable Scales Co.", contactPerson: "Mahesh Bhatt", email: "mahesh@reliablescales.com", phone: "+91 92223 34455", registrationStatus: "Approved", status: "Active", applicationsCount: 18, instrumentsCount: 12, certificatesCount: 10 }
+];
+
+export const mockAdminSecurityLogs = [
+  { id: "SEC-009", timestamp: "2026-08-30T10:15:00Z", actorId: "USR-0005", actorRole: "business", action: "FAILED_LOGIN_ATTEMPT", detail: "Suspended user tried to authenticate. Origin IP: 192.168.1.45" },
+  { id: "SEC-008", timestamp: "2026-08-29T18:40:00Z", actorId: "USR-0004", actorRole: "business", action: "UNAUTHORIZED_API_ACCESS", detail: "Attempted to access LMO-specific endpoints: GET /api/lmo/inspections" },
+  { id: "SEC-007", timestamp: "2026-08-29T16:22:00Z", actorId: "LMO-MH-44012", actorRole: "lmo", action: "PASSWORD_CHANGED", detail: "Officer Priya Sharma updated credentials successfully." }
+];
+
+export const mockAdminSystemSettings = {
+  general: {
+    systemName: "LM Verify Platform",
+    environment: "Production",
+    sessionTimeout: "30 minutes"
+  },
+  workflow: {
+    autoAssignEnabled: false,
+    nablComplianceRequired: true,
+    verificationWindowDays: 30
+  },
+  notifications: {
+    emailAlerts: true,
+    smsAlerts: false,
+    securityAlertsEnabled: true
+  },
+  security: {
+    maxLoginAttempts: 5,
+    minPasswordLength: 8,
+    mfaRequired: true
+  }
+};
+
+export const mockAdminSyncOperations = [
+  { id: "OP-9901", inspectionId: "INS-2026-000321", actorName: "Priya Sharma", actorRole: "LMO", createdTime: "2026-08-30T09:45:00Z", syncTime: "2026-08-30T10:00:00Z", syncStatus: "SYNCED", version: 2, integrityStatus: "PASSED" },
+  { id: "OP-9902", inspectionId: "TEST-2026-000109", actorName: "Anand Verma", actorRole: "GATC", createdTime: "2026-08-30T09:50:00Z", syncTime: "2026-08-30T10:05:00Z", syncStatus: "CONFLICT", version: 3, integrityStatus: "PASSED", conflictDetails: { localVersion: 7, serverVersion: 8, status: "REQUIRES_REVIEW", fields: [{ field: "observedValue", localValue: "1000.8", serverValue: "1000.0" }] } },
+  { id: "OP-9903", inspectionId: "INS-2026-000322", actorName: "Priya Sharma", actorRole: "LMO", createdTime: "2026-08-30T09:55:00Z", syncTime: "2026-08-30T10:10:00Z", syncStatus: "INTEGRITY_WARNING", version: 1, integrityStatus: "FAILED", integrityWarningDetails: { reason: "Evidence image payload cryptographic signature mismatch (tampering suspected).", timestamp: "2026-08-30T10:10:00Z" } },
+  { id: "OP-9904", inspectionId: "INS-2026-000323", actorName: "Arun Mehta", actorRole: "LMO", createdTime: "2026-08-30T10:00:00Z", syncTime: "—", syncStatus: "PENDING_SYNC", version: 1, integrityStatus: "PENDING" },
+  { id: "OP-9905", inspectionId: "INS-2026-000324", actorName: "Priya Sharma", actorRole: "LMO", createdTime: "2026-08-30T10:05:00Z", syncTime: "—", syncStatus: "SYNC_FAILED", version: 2, integrityStatus: "PASSED", failureReason: "Network timeout during large evidence binary upload payload handshake." }
+];
+
 export default {
   mockAdminStats,
   mockAdminProfile,
   mockAdminOfficers,
   mockAdminGatcs,
   mockAdminJurisdictions,
-  mockAdminAuditLogs
+  mockAdminAuditLogs,
+  mockAdminUsers,
+  mockAdminBusinesses,
+  mockAdminSecurityLogs,
+  mockAdminSystemSettings,
+  mockAdminSyncOperations
 };

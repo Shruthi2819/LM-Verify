@@ -32,6 +32,7 @@ import NewApplication from "../pages/business/NewApplication";
 import ApplicationDetail from "../pages/business/ApplicationDetail";
 import CertificateList from "../pages/business/CertificateList";
 import CertificateDetail from "../pages/business/CertificateDetail";
+import BusinessRenewals from "../pages/business/BusinessRenewals";
 import Notifications from "../pages/business/Notifications";
 
 // LMO pages
@@ -52,6 +53,9 @@ import GATCApplicationList from "../pages/gatc/GATCApplicationList";
 import GATCApplicationDetail from "../pages/gatc/GATCApplicationDetail";
 import GATCInspectionDetail from "../pages/gatc/GATCInspectionDetail";
 import GATCCertificateList from "../pages/gatc/CertificateList";
+import Reports from "../pages/gatc/Reports";
+import ReportDetail from "../pages/gatc/ReportDetail";
+import AIInsights from "../pages/gatc/AIInsights";
 
 // Admin pages
 import AdminDashboard from "../pages/admin/AdminDashboard";
@@ -65,6 +69,15 @@ import AdminJurisdictions from "../pages/admin/AdminJurisdictions";
 import AdminInspections from "../pages/admin/AdminInspections";
 import AdminCertificates from "../pages/admin/AdminCertificates";
 import AdminAuditLogs from "../pages/admin/AdminAuditLogs";
+import AdminUsers from "../pages/admin/AdminUsers";
+import AdminUserDetails from "../pages/admin/AdminUserDetails";
+import AdminBusinesses from "../pages/admin/AdminBusinesses";
+import AdminSecurity from "../pages/admin/AdminSecurity";
+import AdminSettings from "../pages/admin/AdminSettings";
+import AdminOfflineSync from "../pages/admin/AdminOfflineSync";
+import AdminEvidenceChains from "../pages/admin/AdminEvidenceChains";
+import AdminCompliance from "../pages/admin/AdminCompliance";
+import SyncCenter from "../pages/common/SyncCenter";
 
 // Placeholder page for unimplemented modules of other roles
 import PlaceholderPage from "../pages/PlaceholderPage";
@@ -81,6 +94,7 @@ function AppRoutes() {
         <Route path={ROUTES.HOME} element={<Home />} />
         <Route path={ROUTES.VERIFY} element={<VerifyCertificate />} />
         <Route path={ROUTES.VERIFY_CERT} element={<VerifyCertificate />} />
+        <Route path={ROUTES.VERIFY_CERT_FULL} element={<VerifyCertificate />} />
       </Route>
 
       {/* ── Auth ────────────────────────────────────────────────────── */}
@@ -118,7 +132,7 @@ function AppRoutes() {
         <Route path={ROUTES.BUSINESS_CERTIFICATE_DETAIL} element={<CertificateDetail />} />
 
         {/* Reminders & Notifications */}
-        <Route path={ROUTES.BUSINESS_RENEWALS} element={<PlaceholderPage title="Renewals" description="Certificate renewal reminders will be implemented in Part 2." />} />
+        <Route path={ROUTES.BUSINESS_RENEWALS} element={<BusinessRenewals />} />
         <Route path={ROUTES.BUSINESS_NOTIFICATIONS} element={<Notifications />} />
       </Route>
 
@@ -142,6 +156,7 @@ function AppRoutes() {
         <Route path={ROUTES.LMO_CERTIFICATE_DETAIL} element={<CertificateDetail />} />
         <Route path={ROUTES.LMO_NOTIFICATIONS} element={<PlaceholderPage title="Notifications" description="Notification centre will be implemented in Part 2." />} />
         <Route path={ROUTES.LMO_PROFILE} element={<LMOProfile />} />
+        <Route path={ROUTES.LMO_SYNC} element={<SyncCenter />} />
       </Route>
 
       {/* ── GATC ────────────────────────────────────────────────────── */}
@@ -155,13 +170,19 @@ function AppRoutes() {
         <Route path={ROUTES.GATC_DASHBOARD} element={<GATCDashboard />} />
         <Route path={ROUTES.GATC_APPLICATIONS} element={<GATCApplicationList />} />
         <Route path={ROUTES.GATC_APPLICATION_DETAIL} element={<GATCApplicationDetail />} />
+        <Route path={ROUTES.GATC_TASKS} element={<GATCApplicationList />} />
+        <Route path={ROUTES.GATC_TASK_DETAIL} element={<GATCApplicationDetail />} />
         <Route path={ROUTES.GATC_SCHEDULE} element={<PlaceholderPage title="Testing Schedule" description="Scheduling calendar will be implemented in Part 5." />} />
-        <Route path={ROUTES.GATC_INSPECTIONS} element={<PlaceholderPage title="Testing queue" description="Active lab queue will be implemented in Part 5." />} />
+        <Route path={ROUTES.GATC_INSPECTIONS} element={<GATCApplicationList />} />
         <Route path={ROUTES.GATC_INSPECTION_DETAIL} element={<GATCInspectionDetail />} />
+        <Route path={ROUTES.GATC_REPORTS} element={<Reports />} />
+        <Route path={ROUTES.GATC_REPORT_DETAIL} element={<ReportDetail />} />
+        <Route path={ROUTES.GATC_AI_INSIGHTS} element={<AIInsights />} />
         <Route path={ROUTES.GATC_CERTIFICATES} element={<GATCCertificateList />} />
         <Route path={ROUTES.GATC_CERTIFICATE_DETAIL} element={<CertificateDetail />} />
         <Route path={ROUTES.GATC_NOTIFICATIONS} element={<PlaceholderPage title="Notifications" description="Notification centre will be implemented in Part 5." />} />
         <Route path={ROUTES.GATC_PROFILE} element={<GATCProfile />} />
+        <Route path={ROUTES.GATC_SYNC} element={<SyncCenter />} />
       </Route>
 
       {/* ── Admin ───────────────────────────────────────────────────── */}
@@ -173,6 +194,9 @@ function AppRoutes() {
         }
       >
         <Route path={ROUTES.ADMIN_DASHBOARD} element={<AdminDashboard />} />
+        <Route path={ROUTES.ADMIN_USERS} element={<AdminUsers />} />
+        <Route path={ROUTES.ADMIN_USER_DETAIL} element={<AdminUserDetails />} />
+        <Route path={ROUTES.ADMIN_BUSINESSES} element={<AdminBusinesses />} />
         <Route path={ROUTES.ADMIN_APPLICATIONS} element={<AdminApplicationList />} />
         <Route path={ROUTES.ADMIN_APPLICATION_DETAIL} element={<AdminApplicationDetail />} />
         <Route path={ROUTES.ADMIN_ASSIGNMENTS} element={<AdminAssignments />} />
@@ -185,6 +209,12 @@ function AppRoutes() {
         <Route path={ROUTES.ADMIN_CERTIFICATES} element={<AdminCertificates />} />
         <Route path={ROUTES.ADMIN_CERTIFICATE_DETAIL} element={<CertificateDetail />} />
         <Route path={ROUTES.ADMIN_AUDIT_LOGS} element={<AdminAuditLogs />} />
+        <Route path={ROUTES.ADMIN_SECURITY} element={<AdminSecurity />} />
+        <Route path={ROUTES.ADMIN_SETTINGS} element={<AdminSettings />} />
+        <Route path={ROUTES.ADMIN_OFFLINE_SYNC} element={<AdminOfflineSync />} />
+        <Route path={ROUTES.ADMIN_EVIDENCE_CHAINS} element={<AdminEvidenceChains />} />
+        <Route path={ROUTES.ADMIN_COMPLIANCE} element={<AdminCompliance />} />
+        <Route path={ROUTES.ADMIN_REPORTS} element={<PlaceholderPage title="Reports & Analytics" description="System analytics reports compilation will be implemented in Part 14." />} />
         <Route path={ROUTES.ADMIN_NOTIFICATIONS} element={<PlaceholderPage title="Notifications" description="Notification warnings will be implemented in Part 5." />} />
         <Route path={ROUTES.ADMIN_PROFILE} element={<AdminProfile />} />
       </Route>

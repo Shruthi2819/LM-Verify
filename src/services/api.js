@@ -1,5 +1,5 @@
 import axios from "axios";
-import { STORAGE_KEYS } from "../utils/constants";
+import { STORAGE_KEYS } from "../utils/constants.js";
 
 /**
  * Axios instance for all API calls.
@@ -8,7 +8,7 @@ import { STORAGE_KEYS } from "../utils/constants";
  * In Part 2, connect this to the FastAPI backend.
  */
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL || "http://localhost:8000/api",
+  baseURL: (typeof import.meta !== "undefined" && import.meta?.env?.VITE_API_BASE_URL) || "http://localhost:8000/api",
   timeout: 15000,
   headers: {
     "Content-Type": "application/json",

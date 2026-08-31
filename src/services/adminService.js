@@ -5,10 +5,15 @@ import {
   mockAdminOfficers,
   mockAdminGatcs,
   mockAdminJurisdictions,
-  mockAdminAuditLogs
+  mockAdminAuditLogs,
+  mockAdminUsers,
+  mockAdminBusinesses,
+  mockAdminSecurityLogs,
+  mockAdminSystemSettings,
+  mockAdminSyncOperations
 } from "../mock/adminData";
 import { mockLmoApplications } from "../mock/lmoData";
-import { mockCertificates } from "../mock/certificateData";
+import { localCertificates } from "./publicVerificationService";
 import { delay } from "../utils/helpers";
 
 const USE_MOCK = import.meta.env.VITE_USE_MOCK_DATA === "true";
@@ -17,12 +22,41 @@ let localAdminApplications = [...mockLmoApplications];
 let localAdminOfficers = [...mockAdminOfficers];
 let localAdminGatcs = [...mockAdminGatcs];
 let localAdminAuditLogs = [...mockAdminAuditLogs];
+let localAdminUsers = [...mockAdminUsers];
+let localAdminBusinesses = [...mockAdminBusinesses];
+let localAdminSecurityLogs = [...mockAdminSecurityLogs];
+let localAdminSystemSettings = { ...mockAdminSystemSettings };
+let localAdminSyncOperations = [...mockAdminSyncOperations];
 
 export const adminService = {
   async getDashboardStats() {
     if (USE_MOCK) {
       await delay(600);
-      return mockAdminStats;
+      const totalUsers = localAdminUsers.length;
+      const businessUsers = localAdminUsers.filter((u) => u.role === "business").length;
+      const lmoUsers = localAdminUsers.filter((u) => u.role === "lmo").length;
+      const gatcUsers = localAdminUsers.filter((u) => u.role === "gatc").length;
+      const activeUsers = localAdminUsers.filter((u) => u.status === "Active").length;
+      const inactiveUsers = localAdminUsers.filter((u) => u.status === "Inactive" || u.status === "Suspended").length;
+      const pendingUsers = localAdminUsers.filter((u) => u.status === "Pending").length;
+      const pendingApps = localAdminApplications.filter((a) => a.status === "UNDER_REVIEW" || a.status === "SUBMITTED").length;
+      const pendingInspections = 2; // Mock inspections scheduled
+      const pendingConflicts = localAdminSyncOperations.filter((op) => op.syncStatus === "CONFLICT").length;
+      const pendingSyncOps = localAdminSyncOperations.filter((op) => op.syncStatus === "PENDING_SYNC" || op.syncStatus === "SYNC_FAILED").length;
+
+      return [
+        { label: "Total Users", value: totalUsers },
+        { label: "Business Users", value: businessUsers },
+        { label: "LMO Users", value: lmoUsers },
+        { label: "GATC Users", value: gatcUsers },
+        { label: "Active Users", value: activeUsers },
+        { label: "Inactive/Suspended", value: inactiveUsers },
+        { label: "Pending Users", value: pendingUsers },
+        { label: "Pending Applications", value: pendingApps },
+        { label: "Pending Inspections", value: pendingInspections },
+        { label: "Pending Conflicts", value: pendingConflicts },
+        { label: "Pending Sync Ops", value: pendingSyncOps }
+      ];
     }
     try {
       const response = await api.get("/admin/dashboard/stats");
@@ -251,7 +285,7 @@ export const adminService = {
   async getCertificates() {
     if (USE_MOCK) {
       await delay(500);
-      return mockCertificates;
+      return localCertificates;
     }
     try {
       const response = await api.get("/admin/certificates");
@@ -309,6 +343,282 @@ export const adminService = {
       return response.data;
     } catch (error) {
       throw new Error(error.response?.data?.message || "Failed to fetch profile details.");
+    }
+  },
+
+  async getUsers(params = {}) {
+    if (USE_MOCK) {
+      await delay(600);
+      const { search, role, status } = params;
+      let filtered = [...localAdminUsers];
+
+      if (search) {
+        const query = search.toLowerCase();
+        filtered = filtered.filter(
+          (u) =>
+            u.id.toLowerCase().includes(query) ||
+            u.name.toLowerCase().includes(query) ||
+            u.email.toLowerCase().includes(query) ||
+            u.organisation.toLowerCase().includes(query)
+        );
+      }
+
+      if (role) {
+        filtered = filtered.filter((u) => u.role === role);
+      }
+
+      if (status) {
+        filtered = filtered.filter((u) => u.status === status);
+      }
+
+      return { items: filtered, total: filtered.length };
+    }
+    try {
+      const response = await api.get("/admin/users", { params });
+      return response.data;
+    } catch (error) {
+      throw new Error(error.response?.data?.message || "Failed to fetch users list.");
+    }
+  },
+
+  async getUser(id) {
+    if (USE_MOCK) {
+      await delay(400);
+      const matched = localAdminUsers.find((u) => u.id === id);
+      if (!matched) throw new Error("User not found.");
+      return matched;
+    }
+    try {
+      const response = await api.get(`/admin/users/${id}`);
+      return response.data;
+    } catch (error) {
+      throw new Error(error.response?.data?.message || "Failed to fetch user details.");
+    }
+  },
+
+  async updateUserStatus(id, status) {
+    if (USE_MOCK) {
+      await delay(800);
+      const idx = localAdminUsers.findIndex((u) => u.id === id);
+      if (idx === -1) throw new Error("User not found");
+      const previousStatus = localAdminUsers[idx].status;
+      localAdminUsers[idx].status = status;
+
+      // Add to audit logs
+      const auditEvent = {
+        id: `AUD-${Date.now().toString().substring(8)}`,
+        timestamp: new Date().toISOString(),
+        actorName: "Sunita Patil",
+        actorRole: "Admin",
+        action: `USER_${status.toUpperCase()}`,
+        entityType: "User",
+        entityId: id,
+        previousState: previousStatus,
+        newState: status,
+        metadata: `Changed status of user ${localAdminUsers[idx].name} to ${status}.`
+      };
+      localAdminAuditLogs.unshift(auditEvent);
+
+      return { success: true };
+    }
+    try {
+      const response = await api.post(`/admin/users/${id}/status`, { status });
+      return response.data;
+    } catch (error) {
+      throw new Error(error.response?.data?.message || "Failed to update user status.");
+    }
+  },
+
+  async updateUserRole(id, role, reason) {
+    if (USE_MOCK) {
+      await delay(800);
+      const idx = localAdminUsers.findIndex((u) => u.id === id);
+      if (idx === -1) throw new Error("User not found");
+      const previousRole = localAdminUsers[idx].role;
+      localAdminUsers[idx].role = role;
+
+      // Add to audit logs
+      const auditEvent = {
+        id: `AUD-${Date.now().toString().substring(8)}`,
+        timestamp: new Date().toISOString(),
+        actorName: "Sunita Patil",
+        actorRole: "Admin",
+        action: "USER_ROLE_CHANGED",
+        entityType: "User",
+        entityId: id,
+        previousState: previousRole,
+        newState: role,
+        metadata: `Role of user ${localAdminUsers[idx].name} changed from ${previousRole} to ${role}. Reason: ${reason || "None"}`
+      };
+      localAdminAuditLogs.unshift(auditEvent);
+
+      return { success: true };
+    }
+    try {
+      const response = await api.post(`/admin/users/${id}/role`, { role, reason });
+      return response.data;
+    } catch (error) {
+      throw new Error(error.response?.data?.message || "Failed to change user role.");
+    }
+  },
+
+  async getBusinesses(params = {}) {
+    if (USE_MOCK) {
+      await delay(500);
+      const { search } = params;
+      let filtered = [...localAdminBusinesses];
+
+      if (search) {
+        const query = search.toLowerCase();
+        filtered = filtered.filter(
+          (b) =>
+            b.id.toLowerCase().includes(query) ||
+            b.businessName.toLowerCase().includes(query) ||
+            b.contactPerson.toLowerCase().includes(query) ||
+            b.email.toLowerCase().includes(query)
+        );
+      }
+
+      return { items: filtered, total: filtered.length };
+    }
+    try {
+      const response = await api.get("/admin/businesses", { params });
+      return response.data;
+    } catch (error) {
+      throw new Error(error.response?.data?.message || "Failed to fetch business directory.");
+    }
+  },
+
+  async getSecurityLogs(params = {}) {
+    if (USE_MOCK) {
+      await delay(500);
+      return localAdminSecurityLogs;
+    }
+    try {
+      const response = await api.get("/admin/security", { params });
+      return response.data;
+    } catch (error) {
+      throw new Error(error.response?.data?.message || "Failed to fetch security logs.");
+    }
+  },
+
+  async getSystemSettings() {
+    if (USE_MOCK) {
+      await delay(400);
+      return localAdminSystemSettings;
+    }
+    try {
+      const response = await api.get("/admin/settings");
+      return response.data;
+    } catch (error) {
+      throw new Error(error.response?.data?.message || "Failed to fetch system settings.");
+    }
+  },
+
+  async updateSystemSettings(settings) {
+    if (USE_MOCK) {
+      await delay(800);
+      localAdminSystemSettings = { ...settings };
+
+      // Add to audit logs
+      const auditEvent = {
+        id: `AUD-${Date.now().toString().substring(8)}`,
+        timestamp: new Date().toISOString(),
+        actorName: "Sunita Patil",
+        actorRole: "Admin",
+        action: "SYSTEM_SETTINGS_UPDATED",
+        entityType: "SystemSettings",
+        entityId: "SYSTEM",
+        previousState: "ACTIVE",
+        newState: "ACTIVE",
+        metadata: "System workflow configuration parameters updated by administrator."
+      };
+      localAdminAuditLogs.unshift(auditEvent);
+
+      return { success: true };
+    }
+    try {
+      const response = await api.post("/admin/settings", settings);
+      return response.data;
+    } catch (error) {
+      throw new Error(error.response?.data?.message || "Failed to save settings.");
+    }
+  },
+
+  async getSyncOperations(params = {}) {
+    if (USE_MOCK) {
+      await delay(500);
+      const { search, status } = params;
+      let filtered = [...localAdminSyncOperations];
+
+      if (search) {
+        const query = search.toLowerCase();
+        filtered = filtered.filter(
+          (op) =>
+            op.id.toLowerCase().includes(query) ||
+            op.inspectionId.toLowerCase().includes(query) ||
+            op.actorName.toLowerCase().includes(query)
+        );
+      }
+
+      if (status) {
+        filtered = filtered.filter((op) => op.syncStatus === status);
+      }
+
+      return filtered;
+    }
+    try {
+      const response = await api.get("/admin/offline-sync", { params });
+      return response.data;
+    } catch (error) {
+      throw new Error(error.response?.data?.message || "Failed to fetch synchronization operations.");
+    }
+  },
+
+  async getSyncOperation(id) {
+    if (USE_MOCK) {
+      await delay(400);
+      const matched = localAdminSyncOperations.find((op) => op.id === id);
+      if (!matched) throw new Error("Sync operation not found.");
+      return matched;
+    }
+    try {
+      const response = await api.get(`/admin/offline-sync/${id}`);
+      return response.data;
+    } catch (error) {
+      throw new Error(error.response?.data?.message || "Failed to fetch sync operation details.");
+    }
+  },
+
+  async resolveConflict(id, resolution) {
+    if (USE_MOCK) {
+      await delay(800);
+      const idx = localAdminSyncOperations.findIndex((op) => op.id === id);
+      if (idx === -1) throw new Error("Sync operation not found");
+      localAdminSyncOperations[idx].syncStatus = "SYNCED";
+
+      // Add to audit logs
+      const auditEvent = {
+        id: `AUD-${Date.now().toString().substring(8)}`,
+        timestamp: new Date().toISOString(),
+        actorName: "Sunita Patil",
+        actorRole: "Admin",
+        action: "CONFLICT_RESOLVED",
+        entityType: "SyncOperation",
+        entityId: id,
+        previousState: "CONFLICT",
+        newState: "SYNCED",
+        metadata: `Conflict resolved in favor of ${resolution.toUpperCase()} version.`
+      };
+      localAdminAuditLogs.unshift(auditEvent);
+
+      return { success: true };
+    }
+    try {
+      const response = await api.post(`/admin/offline-sync/${id}/resolve`, { resolution });
+      return response.data;
+    } catch (error) {
+      throw new Error(error.response?.data?.message || "Failed to resolve conflict.");
     }
   }
 };

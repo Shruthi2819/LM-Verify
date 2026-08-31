@@ -3,7 +3,9 @@ import {
   mockGatcStats,
   mockGatcProfile,
   mockGatcApplications,
-  mockGatcInspections
+  mockGatcInspections,
+  mockGatcReports,
+  mockGatcAiInsights
 } from "../mock/gatcData";
 import { delay } from "../utils/helpers";
 
@@ -11,6 +13,8 @@ const USE_MOCK = import.meta.env.VITE_USE_MOCK_DATA === "true";
 
 let localGatcApplications = [...mockGatcApplications];
 let localGatcInspections = [...mockGatcInspections];
+let localGatcReports = [...mockGatcReports];
+let localGatcAiInsights = { ...mockGatcAiInsights };
 
 export const gatcService = {
   async getDashboardStats() {
@@ -145,7 +149,10 @@ export const gatcService = {
   async getInspection(id) {
     if (USE_MOCK) {
       await delay(500);
-      const matched = localGatcInspections.find((ins) => ins.id === id);
+      let matched = localGatcInspections.find((ins) => ins.id === id || ins.inspectionId === id);
+      if (!matched) {
+        matched = mockGatcInspections.find((ins) => ins.id === id || ins.inspectionId === id);
+      }
       if (!matched) throw new Error("Test record not found.");
       return matched;
     }
@@ -154,6 +161,38 @@ export const gatcService = {
       return response.data;
     } catch (error) {
       throw new Error(error.response?.data?.message || "Failed to fetch test details.");
+    }
+  },
+
+  async startTest(id) {
+    if (USE_MOCK) {
+      await delay(500);
+      const idx = localGatcInspections.findIndex((ins) => ins.id === id);
+      if (idx !== -1) {
+        localGatcInspections[idx] = {
+          ...localGatcInspections[idx],
+          status: "IN_PROGRESS"
+        };
+        // Add start event to audit trail
+        const storedLogs = localStorage.getItem("lmv_audit_trail") || "[]";
+        const logs = JSON.parse(storedLogs);
+        logs.unshift({
+          id: `AUDIT-${Date.now()}`,
+          testId: id,
+          actor: "Technician Priya",
+          role: "GATC",
+          action: "GATC_TEST_STARTED",
+          timestamp: new Date().toISOString()
+        });
+        localStorage.setItem("lmv_audit_trail", JSON.stringify(logs));
+      }
+      return { success: true };
+    }
+    try {
+      const response = await api.post(`/gatc/inspections/${id}/start`);
+      return response.data;
+    } catch (error) {
+      throw new Error(error.response?.data?.message || "Failed to start test.");
     }
   },
 
@@ -171,7 +210,7 @@ export const gatcService = {
       const formData = new FormData();
       formData.append("file", file);
       const response = await api.post(`/gatc/inspections/${inspectionId}/evidence`, formData, {
-        headers: { "Content-Type": "multipart/form-data" }
+        headers: { "Content-Type": undefined }
       });
       return response.data;
     } catch (error) {
@@ -196,6 +235,31 @@ export const gatcService = {
         photos: payload.photos
       };
 
+      // Add to submitted reports
+      const newReportId = `REP-2026-${String(localGatcReports.length + 88).padStart(6, "0")}`;
+      const newReport = {
+        id: newReportId,
+        applicationId: current.applicationId,
+        businessName: current.businessName,
+        instrumentName: current.instrumentName,
+        instrumentSerial: current.instrumentSerial,
+        testDate: new Date().toISOString().split("T")[0],
+        result: payload.result,
+        risk: payload.result === "FAIL" ? "HIGH" : "LOW",
+        status: "SUBMITTED",
+        submittedDate: new Date().toISOString().split("T")[0],
+        remarks: payload.remarks,
+        checklist: payload.checklist,
+        measurements: payload.measurements,
+        photos: payload.photos,
+        gps: payload.gps || { lat: "18.6254", lng: "73.8052", timestamp: new Date().toISOString() },
+        signatureStatus: "Signed",
+        blockchainStatus: "ANCHORED",
+        blockchainTx: "0x" + Math.random().toString(16).substring(2, 10) + Math.random().toString(16).substring(2, 10),
+        blockchainHash: "0x" + Math.random().toString(16).substring(2, 10) + Math.random().toString(16).substring(2, 10)
+      };
+      localGatcReports.unshift(newReport);
+
       // Sync application
       const appIdx = localGatcApplications.findIndex((app) => app.id === current.applicationId);
       if (appIdx !== -1) {
@@ -207,13 +271,94 @@ export const gatcService = {
           )
         };
       }
-      return { success: true };
+      return { success: true, reportId: newReportId };
     }
     try {
       const response = await api.post(`/gatc/inspections/${id}/submit`, payload);
       return response.data;
     } catch (error) {
       throw new Error(error.response?.data?.message || "Failed to submit test results.");
+    }
+  },
+
+  async getReports(params = {}) {
+    if (USE_MOCK) {
+      await delay(600);
+      const { search, status, result } = params;
+      let filtered = [...localGatcReports];
+
+      if (search) {
+        const query = search.trim().toLowerCase();
+        filtered = filtered.filter(
+          (r) =>
+            r.id.toLowerCase().includes(query) ||
+            r.applicationId.toLowerCase().includes(query) ||
+            r.instrumentSerial.toLowerCase().includes(query) ||
+            (r.businessName && r.businessName.toLowerCase().includes(query))
+        );
+      }
+
+      if (status) {
+        filtered = filtered.filter((r) => r.status === status);
+      }
+
+      if (result) {
+        filtered = filtered.filter((r) => r.result === result);
+      }
+
+      return { items: filtered, total: filtered.length };
+    }
+    try {
+      const response = await api.get("/gatc/reports", { params });
+      return response.data;
+    } catch (error) {
+      throw new Error(error.response?.data?.message || "Failed to fetch reports.");
+    }
+  },
+
+  async getReport(id) {
+    if (USE_MOCK) {
+      await delay(500);
+      const matched = localGatcReports.find((r) => r.id === id);
+      if (!matched) throw new Error("Report not found.");
+      return matched;
+    }
+    try {
+      const response = await api.get(`/gatc/reports/${id}`);
+      return response.data;
+    } catch (error) {
+      throw new Error(error.response?.data?.message || "Failed to fetch report details.");
+    }
+  },
+
+  async getAIInsights() {
+    if (USE_MOCK) {
+      await delay(500);
+      return localGatcAiInsights;
+    }
+    try {
+      const response = await api.get("/gatc/ai-insights");
+      return response.data;
+    } catch (error) {
+      throw new Error(error.response?.data?.message || "Failed to fetch AI Insights.");
+    }
+  },
+
+  async resolveAIWarning(warningId) {
+    if (USE_MOCK) {
+      await delay(400);
+      localGatcAiInsights.alerts = localGatcAiInsights.alerts.map((alert) =>
+        alert.id === warningId ? { ...alert, status: "REVIEWED" } : alert
+      );
+      localGatcAiInsights.stats.resolvedAlerts += 1;
+      localGatcAiInsights.stats.totalAlerts = Math.max(0, localGatcAiInsights.stats.totalAlerts - 1);
+      return { success: true };
+    }
+    try {
+      const response = await api.post(`/gatc/ai-insights/resolve/${warningId}`);
+      return response.data;
+    } catch (error) {
+      throw new Error(error.response?.data?.message || "Failed to resolve AI Warning.");
     }
   },
 

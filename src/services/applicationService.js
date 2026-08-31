@@ -4,14 +4,21 @@ import { delay } from "../utils/helpers";
 
 const USE_MOCK = import.meta.env.VITE_USE_MOCK_DATA === "true";
 
-let localApplications = [...mockApplications];
+const getLocalApps = () => {
+  const cached = localStorage.getItem("lmv_mock_applications");
+  if (!cached) {
+    localStorage.setItem("lmv_mock_applications", JSON.stringify(mockApplications));
+    return [...mockApplications];
+  }
+  return JSON.parse(cached);
+};
 
 export const applicationService = {
   async getApplications(params = {}) {
     if (USE_MOCK) {
       await delay(600);
       const { search, type, status, page = 1, limit = 10 } = params;
-      let filtered = [...localApplications];
+      let filtered = getLocalApps();
 
       if (search) {
         const query = search.toLowerCase();
@@ -55,7 +62,8 @@ export const applicationService = {
   async getApplication(id) {
     if (USE_MOCK) {
       await delay(500);
-      const application = localApplications.find((item) => item.id === id);
+      const apps = getLocalApps();
+      const application = apps.find((item) => item.id === id);
       if (!application) throw new Error("Application not found.");
       return application;
     }
@@ -71,7 +79,8 @@ export const applicationService = {
   async createApplication(data) {
     if (USE_MOCK) {
       await delay(1000);
-      const newId = `APP-2026-${String(localApplications.length + 50).padStart(5, "0")}`;
+      const apps = getLocalApps();
+      const newId = `APP-2026-${String(apps.length + 50).padStart(5, "0")}`;
       const newApplication = {
         id: newId,
         instrumentId: data.instrumentId,
@@ -94,7 +103,8 @@ export const applicationService = {
           { status: "CERTIFICATE_GENERATED", label: "Certificate Issued", date: null, done: false },
         ]
       };
-      localApplications.unshift(newApplication);
+      apps.unshift(newApplication);
+      localStorage.setItem("lmv_mock_applications", JSON.stringify(apps));
       return newApplication;
     }
 

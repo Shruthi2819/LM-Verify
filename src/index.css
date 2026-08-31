@@ -115,3 +115,133 @@ body {
 .toast-container {
   z-index: 9999;
 }
+
+/* ─── Light/Dark Theme Variable Configurations ───────────────────────────── */
+:root {
+  --bg-page: #f1f5f9;
+  --bg-card: #ffffff;
+  --border-color: #cbd5e1;
+  --text-main: #0f172a;
+  --text-muted: #64748b;
+  --input-bg: #ffffff;
+  --input-text: #0f172a;
+  --input-border: #cbd5e1;
+  --header-bg: #ffffff;
+  --header-border: #e2e8f0;
+  --header-text: #0f172a;
+  --header-hover: #f1f5f9;
+}
+
+html.dark {
+  --bg-page: #0f172a;
+  --bg-card: #1e293b;
+  --border-color: #334155;
+  --text-main: #f8fafc;
+  --text-muted: #94a3b8;
+  --input-bg: #0f172a;
+  --input-text: #f8fafc;
+  --input-border: #334155;
+  --header-bg: #1e293b;
+  --header-border: #334155;
+  --header-text: #f8fafc;
+  --header-hover: #0f172a;
+}
+
+/* Body / Core variables override in Dark Mode */
+html.dark body {
+  background-color: var(--bg-page) !important;
+  color: var(--text-main) !important;
+}
+
+html.dark .bg-slate-100 {
+  background-color: var(--bg-page) !important;
+}
+
+html.dark .bg-white,
+html.dark .bg-slate-50,
+html.dark .bg-slate-55 {
+  background-color: var(--bg-card) !important;
+}
+
+html.dark .text-slate-800,
+html.dark .text-slate-900,
+html.dark .text-slate-700,
+html.dark .text-slate-650 {
+  color: var(--text-main) !important;
+}
+
+html.dark .text-slate-600,
+html.dark .text-slate-500,
+html.dark .text-slate-400,
+html.dark .text-slate-450 {
+  color: var(--text-muted) !important;
+}
+
+html.dark .border-slate-200,
+html.dark .border-slate-100,
+html.dark .border-slate-150 {
+  border-color: var(--border-color) !important;
+}
+
+/* Modals */
+html.dark .fixed.inset-0.z-50 .bg-white {
+  background-color: var(--bg-card) !important;
+  border: 1px solid var(--border-color) !important;
+}
+
+/* Forms & Inputs */
+html.dark input,
+html.dark select,
+html.dark textarea,
+html.dark .bg-white.border-slate-350 {
+  background-color: var(--input-bg) !important;
+  color: var(--input-text) !important;
+  border-color: var(--input-border) !important;
+}
+
+/* Headers & Navbars */
+html.dark header {
+  background-color: var(--header-bg) !important;
+  border-color: var(--header-border) !important;
+}
+
+html.dark header .text-slate-800,
+html.dark header .text-slate-500 {
+  color: var(--header-text) !important;
+}
+
+html.dark header button:hover,
+html.dark header .hover\:bg-slate-100:hover {
+  background-color: var(--header-hover) !important;
+}
+
+/* Sidebar overrides */
+html.dark aside {
+  background-color: #0b0f19 !important;
+  border-right: 1px solid var(--border-color) !important;
+}
+
+/* Cards inside Workspace */
+html.dark .bg-slate-50\/50 {
+  background-color: var(--bg-page) !important;
+}
+
+/* Tables and rows */
+html.dark tr.border-b,
+html.dark tr {
+  border-bottom-color: var(--border-color) !important;
+}
+
+html.dark tr:hover td {
+  background-color: var(--header-hover) !important;
+}
+
+html.dark td {
+  color: var(--text-main) !important;
+}
+
+html.dark th {
+  background-color: var(--bg-page) !important;
+  color: var(--text-muted) !important;
+  border-bottom-color: var(--border-color) !important;
+}

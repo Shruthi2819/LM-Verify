@@ -10,8 +10,24 @@ import { delay } from "../utils/helpers";
 const USE_MOCK = import.meta.env.VITE_USE_MOCK_DATA === "true";
 
 // Local states for mock LMO mutations
-let localLmoApplications = [...mockLmoApplications];
-let localLmoInspections = [...mockLmoInspections];
+
+const getLocalLmoApps = () => {
+  const cached = localStorage.getItem("lmv_mock_lmo_applications");
+  if (!cached) {
+    localStorage.setItem("lmv_mock_lmo_applications", JSON.stringify(mockLmoApplications));
+    return [...mockLmoApplications];
+  }
+  return JSON.parse(cached);
+};
+
+const getLocalLmoInspections = () => {
+  const cached = localStorage.getItem("lmv_mock_lmo_inspections");
+  if (!cached) {
+    localStorage.setItem("lmv_mock_lmo_inspections", JSON.stringify(mockLmoInspections));
+    return [...mockLmoInspections];
+  }
+  return JSON.parse(cached);
+};
 
 export const lmoService = {
   async getDashboardStats() {
@@ -31,7 +47,7 @@ export const lmoService = {
     if (USE_MOCK) {
       await delay(600);
       const { search, status, type, page = 1, limit = 10 } = params;
-      let filtered = [...localLmoApplications];
+      let filtered = getLocalLmoApps();
 
       if (search) {
         const query = search.trim().toLowerCase();
@@ -71,7 +87,11 @@ export const lmoService = {
   async getApplication(id) {
     if (USE_MOCK) {
       await delay(500);
-      const matched = localLmoApplications.find((app) => app.id === id);
+      const apps = getLocalLmoApps();
+      let matched = apps.find((app) => app.id === id);
+      if (!matched) {
+        matched = mockLmoApplications.find((app) => app.id === id);
+      }
       if (!matched) throw new Error("Application not found.");
       return matched;
     }
@@ -86,22 +106,42 @@ export const lmoService = {
   async scheduleInspection(applicationId, scheduledDate, scheduledTime) {
     if (USE_MOCK) {
       await delay(800);
-      const idx = localLmoApplications.findIndex((app) => app.id === applicationId);
+      const lmoApps = getLocalLmoApps();
+      const idx = lmoApps.findIndex((app) => app.id === applicationId);
       if (idx === -1) throw new Error("Application not found");
 
-      // Update application
+      // Update lmo application
       const updatedApp = {
-        ...localLmoApplications[idx],
+        ...lmoApps[idx],
         status: "SCHEDULED",
         scheduledDate,
-        timeline: localLmoApplications[idx].timeline.map((item) =>
+        timeline: lmoApps[idx].timeline.map((item) =>
           item.status === "SCHEDULED" ? { ...item, done: true, date: scheduledDate } : item
         )
       };
-      localLmoApplications[idx] = updatedApp;
+      lmoApps[idx] = updatedApp;
+      localStorage.setItem("lmv_mock_lmo_applications", JSON.stringify(lmoApps));
+
+      // Synchronize with business applications
+      const businessAppsKey = "lmv_mock_applications";
+      const cachedBApps = localStorage.getItem(businessAppsKey);
+      let bApps = cachedBApps ? JSON.parse(cachedBApps) : [];
+      const bIdx = bApps.findIndex(app => app.id === applicationId);
+      if (bIdx !== -1) {
+        bApps[bIdx] = {
+          ...bApps[bIdx],
+          status: "SCHEDULED",
+          scheduledDate,
+          timeline: bApps[bIdx].timeline.map(t =>
+            t.status === "SCHEDULED" ? { ...t, done: true, date: scheduledDate } : t
+          )
+        };
+        localStorage.setItem(businessAppsKey, JSON.stringify(bApps));
+      }
 
       // Add to inspections queue
-      const newInspectionId = `INS-2026-${String(localLmoInspections.length + 322).padStart(6, "0")}`;
+      const inspections = getLocalLmoInspections();
+      const newInspectionId = `INS-2026-${String(inspections.length + 322).padStart(6, "0")}`;
       const newInspection = {
         id: newInspectionId,
         applicationId: updatedApp.id,
@@ -129,7 +169,8 @@ export const lmoService = {
         remarks: "",
         result: ""
       };
-      localLmoInspections.unshift(newInspection);
+      inspections.unshift(newInspection);
+      localStorage.setItem("lmv_mock_lmo_inspections", JSON.stringify(inspections));
       return { success: true };
     }
 
@@ -148,7 +189,7 @@ export const lmoService = {
     if (USE_MOCK) {
       await delay(600);
       const { status } = params;
-      let filtered = [...localLmoInspections];
+      let filtered = getLocalLmoInspections();
       if (status) {
         filtered = filtered.filter((ins) => ins.status === status);
       }
@@ -165,7 +206,11 @@ export const lmoService = {
   async getInspection(id) {
     if (USE_MOCK) {
       await delay(500);
-      const matched = localLmoInspections.find((ins) => ins.id === id);
+      const inspections = getLocalLmoInspections();
+      let matched = inspections.find((ins) => ins.id === id || ins.inspectionId === id);
+      if (!matched) {
+        matched = mockLmoInspections.find((ins) => ins.id === id || ins.inspectionId === id);
+      }
       if (!matched) throw new Error("Inspection not found.");
       return matched;
     }
@@ -202,11 +247,11 @@ export const lmoService = {
   async submitInspection(id, payload) {
     if (USE_MOCK) {
       await delay(1000);
-      const insIdx = localLmoInspections.findIndex((ins) => ins.id === id);
+      const inspections = getLocalLmoInspections();
+      const insIdx = inspections.findIndex((ins) => ins.id === id);
       if (insIdx === -1) throw new Error("Inspection not found");
 
-      // Update inspection details
-      const currentIns = localLmoInspections[insIdx];
+      const currentIns = inspections[insIdx];
       const updatedInspection = {
         ...currentIns,
         status: "COMPLETED",
@@ -217,19 +262,39 @@ export const lmoService = {
         result: payload.result,
         photos: payload.photos
       };
-      localLmoInspections[insIdx] = updatedInspection;
+      inspections[insIdx] = updatedInspection;
+      localStorage.setItem("lmv_mock_lmo_inspections", JSON.stringify(inspections));
 
-      // Sync application status to INSPECTION_COMPLETED
-      const appIdx = localLmoApplications.findIndex((app) => app.id === currentIns.applicationId);
+      // Sync LMO application status to INSPECTION_COMPLETED
+      const lmoApps = getLocalLmoApps();
+      const appIdx = lmoApps.findIndex((app) => app.id === currentIns.applicationId);
       if (appIdx !== -1) {
-        localLmoApplications[appIdx] = {
-          ...localLmoApplications[appIdx],
+        lmoApps[appIdx] = {
+          ...lmoApps[appIdx],
           status: "INSPECTION_COMPLETED",
-          timeline: localLmoApplications[appIdx].timeline.map((item) =>
+          timeline: lmoApps[appIdx].timeline.map((item) =>
             item.status === "INSPECTION_COMPLETED" ? { ...item, done: true, date: new Date().toISOString().split("T")[0] } : item
           )
         };
+        localStorage.setItem("lmv_mock_lmo_applications", JSON.stringify(lmoApps));
       }
+
+      // Sync business application status to INSPECTION_COMPLETED
+      const businessAppsKey = "lmv_mock_applications";
+      const cachedBApps = localStorage.getItem(businessAppsKey);
+      let bApps = cachedBApps ? JSON.parse(cachedBApps) : [];
+      const bIdx = bApps.findIndex(app => app.id === currentIns.applicationId);
+      if (bIdx !== -1) {
+        bApps[bIdx] = {
+          ...bApps[bIdx],
+          status: "INSPECTION_COMPLETED",
+          timeline: bApps[bIdx].timeline.map(t =>
+            t.status === "INSPECTION_COMPLETED" ? { ...t, done: true, date: new Date().toISOString().split("T")[0] } : t
+          )
+        };
+        localStorage.setItem(businessAppsKey, JSON.stringify(bApps));
+      }
+
       return { success: true };
     }
 
@@ -244,16 +309,37 @@ export const lmoService = {
   async approveApplication(applicationId, remarks) {
     if (USE_MOCK) {
       await delay(1000);
-      const idx = localLmoApplications.findIndex((app) => app.id === applicationId);
+      
+      // Update LMO application
+      const lmoApps = getLocalLmoApps();
+      const idx = lmoApps.findIndex((app) => app.id === applicationId);
       if (idx === -1) throw new Error("Application not found");
 
-      localLmoApplications[idx] = {
-        ...localLmoApplications[idx],
+      lmoApps[idx] = {
+        ...lmoApps[idx],
         status: "APPROVED",
-        timeline: localLmoApplications[idx].timeline.map((item) =>
+        timeline: lmoApps[idx].timeline.map((item) =>
           item.status === "CERTIFICATE_GENERATED" ? { ...item, done: true, date: new Date().toISOString().split("T")[0] } : item
         )
       };
+      localStorage.setItem("lmv_mock_lmo_applications", JSON.stringify(lmoApps));
+
+      // Synchronize with business applications
+      const businessAppsKey = "lmv_mock_applications";
+      const cachedBApps = localStorage.getItem(businessAppsKey);
+      let bApps = cachedBApps ? JSON.parse(cachedBApps) : [];
+      const bIdx = bApps.findIndex(app => app.id === applicationId);
+      if (bIdx !== -1) {
+        bApps[bIdx] = {
+          ...bApps[bIdx],
+          status: "APPROVED",
+          timeline: bApps[bIdx].timeline.map(t =>
+            t.status === "CERTIFICATE_GENERATED" ? { ...t, done: true, date: new Date().toISOString().split("T")[0] } : t
+          )
+        };
+        localStorage.setItem(businessAppsKey, JSON.stringify(bApps));
+      }
+
       return { success: true };
     }
     try {
@@ -267,17 +353,39 @@ export const lmoService = {
   async rejectApplication(applicationId, reason) {
     if (USE_MOCK) {
       await delay(1000);
-      const idx = localLmoApplications.findIndex((app) => app.id === applicationId);
+      
+      // Update LMO application
+      const lmoApps = getLocalLmoApps();
+      const idx = lmoApps.findIndex((app) => app.id === applicationId);
       if (idx === -1) throw new Error("Application not found");
 
-      localLmoApplications[idx] = {
-        ...localLmoApplications[idx],
+      lmoApps[idx] = {
+        ...lmoApps[idx],
         status: "REJECTED",
         rejectionReason: reason,
-        timeline: localLmoApplications[idx].timeline.map((item) =>
+        timeline: lmoApps[idx].timeline.map((item) =>
           item.status === "REJECTED" || item.status === "INSPECTION_COMPLETED" ? { ...item, done: true, date: new Date().toISOString().split("T")[0] } : item
         )
       };
+      localStorage.setItem("lmv_mock_lmo_applications", JSON.stringify(lmoApps));
+
+      // Synchronize with business applications
+      const businessAppsKey = "lmv_mock_applications";
+      const cachedBApps = localStorage.getItem(businessAppsKey);
+      let bApps = cachedBApps ? JSON.parse(cachedBApps) : [];
+      const bIdx = bApps.findIndex(app => app.id === applicationId);
+      if (bIdx !== -1) {
+        bApps[bIdx] = {
+          ...bApps[bIdx],
+          status: "REJECTED",
+          rejectionReason: reason,
+          timeline: bApps[bIdx].timeline.map(t =>
+            t.status === "REJECTED" || t.status === "INSPECTION_COMPLETED" ? { ...t, done: true, date: new Date().toISOString().split("T")[0] } : t
+          )
+        };
+        localStorage.setItem(businessAppsKey, JSON.stringify(bApps));
+      }
+
       return { success: true };
     }
     try {
@@ -291,7 +399,8 @@ export const lmoService = {
   async getInstrument(id) {
     if (USE_MOCK) {
       await delay(500);
-      const appMatch = localLmoApplications.find((app) => app.instrumentId === id);
+      const apps = getLocalLmoApps();
+      const appMatch = apps.find((app) => app.instrumentId === id);
       if (!appMatch) throw new Error("Instrument not found.");
       return {
         id: appMatch.instrumentId,

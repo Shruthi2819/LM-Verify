@@ -19,6 +19,7 @@ function GATCDashboard() {
   const [schedule, setSchedule] = useState([]);
   const [pendingApps, setPendingApps] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [isExpired, setIsExpired] = useState(false);
 
   useEffect(() => {
     async function loadData() {
@@ -26,11 +27,17 @@ function GATCDashboard() {
         const statsData = await gatcService.getDashboardStats();
         setStats(statsData);
 
-        const tests = await gatcService.getInspections();
+        const testsData = await gatcService.getInspections();
+        const tests = Array.isArray(testsData) ? testsData : (testsData?.items || []);
         setSchedule(tests.filter(t => t.status === "SCHEDULED").slice(0, 3));
 
         const apps = await gatcService.getApplications();
         setPendingApps(apps.items.filter(a => a.status === "UNDER_REVIEW").slice(0, 5));
+
+        const profileData = await gatcService.getProfile();
+        if (profileData && new Date(profileData.accreditationExpiry) < new Date()) {
+          setIsExpired(true);
+        }
       } catch (err) {
         toast.error("Failed to load dashboard data.");
       } finally {
@@ -55,6 +62,13 @@ function GATCDashboard() {
   return (
     <div className="space-y-6 page-enter">
       <Breadcrumbs items={[{ label: "Dashboard" }]} />
+
+      {isExpired && (
+        <div className="bg-red-50 border border-red-200 rounded-xl p-4 text-xs text-red-750 flex flex-col gap-1.5 shadow-sm">
+          <span className="font-bold flex items-center gap-1">⚠️ NABL LICENSE ACCREDITATION EXPIRED</span>
+          <p>Your Government Approved Test Centre authorization has expired. Official calibration testing operations are currently restricted. Please renew your credentials in your profile settings.</p>
+        </div>
+      )}
 
       <div>
         <h1 className="text-xl font-bold text-slate-800">GATC Calibration Dashboard</h1>

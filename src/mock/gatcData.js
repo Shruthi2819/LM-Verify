@@ -123,3 +123,64 @@ export const mockGatcInspections = [
     result: "" // PASS, FAIL
   }
 ];
+
+export const mockGatcReports = [
+  {
+    id: "REP-2026-000087",
+    applicationId: "APP-2026-00052",
+    businessName: "Steel India Ltd.",
+    instrumentName: "Platform Scale",
+    instrumentSerial: "PS-2023-WB001",
+    testDate: "2026-08-25",
+    result: "PASS",
+    risk: "LOW",
+    status: "APPROVED",
+    submittedDate: "2026-08-25",
+    remarks: "NABL parameters verified successfully. Sealing wire intact.",
+    checklist: [
+      { id: "gcl-1", label: "NABL standard reference calibration check", value: "PASS" },
+      { id: "gcl-2", label: "Platform levelling and balance verified", value: "PASS" }
+    ],
+    measurements: [
+      { id: "gm-1", testName: "Zero Balance calibration", standardValue: 0, observedValue: 0, error: 0, result: "PASS" }
+    ],
+    photos: [{ id: "img-prev-1", name: "device_scale.jpg" }],
+    gps: { lat: "18.6254", lng: "73.8052", timestamp: "2026-08-25T11:00:00Z" },
+    signatureStatus: "Signed",
+    blockchainStatus: "ANCHORED",
+    blockchainTx: "0x3a7f9d2e1b4c8a6f0e5d3b2a1c9f7e8d4b6a2c0f",
+    blockchainHash: "0x3a7f9d2e1b4c8a6f0e5d3b2a1c9f7e8d4b6a2c0f"
+  }
+];
+
+export const mockGatcAiInsights = {
+  stats: {
+    totalAlerts: 4,
+    highRisk: 1,
+    mediumRisk: 2,
+    lowRisk: 1,
+    resolvedAlerts: 15
+  },
+  alerts: [
+    {
+      id: "alert-001",
+      task: "APP-2026-00052",
+      type: "Measurement Anomaly",
+      risk: "HIGH",
+      confidence: 89,
+      reason: "Calibration observed value at full capacity deviates beyond Class III maximum permissible error limits.",
+      todo: "Inspect structural load-cell points for physical contact, and re-record numerical readings.",
+      status: "OPEN"
+    },
+    {
+      id: "alert-002",
+      task: "APP-2026-00051",
+      type: "Tamper Evidence Warning",
+      risk: "MEDIUM",
+      confidence: 76,
+      reason: "No lead wire seal photos attached to the evidence upload slots.",
+      todo: "Capture a close-up photograph of the stamping lead wire seal node.",
+      status: "OPEN"
+    }
+  ]
+};

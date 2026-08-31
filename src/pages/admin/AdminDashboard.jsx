@@ -90,6 +90,143 @@ function AdminDashboard() {
           ))
         )}
       </div>
+      {/* Analytics Charts Row */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+        <Card>
+          <Card.Header className="pb-2 border-b border-slate-100 mb-3 flex items-center gap-1.5">
+            <ClipboardList size={16} className="text-slate-400" />
+            <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider">Applications by Status</h3>
+          </Card.Header>
+          <Card.Body className="space-y-3.5 text-[11px] font-medium text-slate-600">
+            <div className="space-y-1">
+              <div className="flex justify-between">
+                <span>Under Review</span>
+                <span className="font-semibold text-slate-800">12 (10%)</span>
+              </div>
+              <div className="w-full bg-slate-100 rounded-full h-2.5 dark:bg-slate-800">
+                <div className="bg-amber-500 h-2.5 rounded-full" style={{ width: "10%" }} />
+              </div>
+            </div>
+
+            <div className="space-y-1">
+              <div className="flex justify-between">
+                <span>Assigned</span>
+                <span className="font-semibold text-slate-800">18 (15%)</span>
+              </div>
+              <div className="w-full bg-slate-100 rounded-full h-2.5 dark:bg-slate-800">
+                <div className="bg-blue-500 h-2.5 rounded-full" style={{ width: "15%" }} />
+              </div>
+            </div>
+
+            <div className="space-y-1">
+              <div className="flex justify-between">
+                <span>Scheduled</span>
+                <span className="font-semibold text-slate-800">24 (19%)</span>
+              </div>
+              <div className="w-full bg-slate-100 rounded-full h-2.5 dark:bg-slate-800">
+                <div className="bg-indigo-500 h-2.5 rounded-full" style={{ width: "19%" }} />
+              </div>
+            </div>
+
+            <div className="space-y-1">
+              <div className="flex justify-between">
+                <span>Completed</span>
+                <span className="font-semibold text-slate-800">70 (56%)</span>
+              </div>
+              <div className="w-full bg-slate-100 rounded-full h-2.5 dark:bg-slate-800">
+                <div className="bg-green-500 h-2.5 rounded-full" style={{ width: "56%" }} />
+              </div>
+            </div>
+          </Card.Body>
+        </Card>
+
+        <Card>
+          <Card.Header className="pb-2 border-b border-slate-100 mb-3 flex items-center gap-1.5">
+            <Award size={16} className="text-slate-400" />
+            <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider">Certificates Issued (Growth)</h3>
+          </Card.Header>
+          <Card.Body className="h-[140px] flex items-end justify-between gap-2 pt-2 px-2 text-[10px] text-slate-400 font-semibold select-none">
+            <div className="flex flex-col items-center flex-1 gap-1">
+              <div className="w-full bg-blue-100 rounded-t h-[20px] dark:bg-blue-900/40 relative group cursor-pointer hover:bg-blue-200">
+                <span className="absolute -top-5 left-1/2 -translate-x-1/2 hidden group-hover:block bg-slate-800 text-white px-1 rounded text-[8px]">15</span>
+              </div>
+              <span>Apr</span>
+            </div>
+            <div className="flex flex-col items-center flex-1 gap-1">
+              <div className="w-full bg-blue-200 rounded-t h-[35px] dark:bg-blue-800/40 relative group cursor-pointer hover:bg-blue-300">
+                <span className="absolute -top-5 left-1/2 -translate-x-1/2 hidden group-hover:block bg-slate-800 text-white px-1 rounded text-[8px]">22</span>
+              </div>
+              <span>May</span>
+            </div>
+            <div className="flex flex-col items-center flex-1 gap-1">
+              <div className="w-full bg-blue-300 rounded-t h-[55px] dark:bg-blue-700/40 relative group cursor-pointer hover:bg-blue-400">
+                <span className="absolute -top-5 left-1/2 -translate-x-1/2 hidden group-hover:block bg-slate-800 text-white px-1 rounded text-[8px]">30</span>
+              </div>
+              <span>Jun</span>
+            </div>
+            <div className="flex flex-col items-center flex-1 gap-1">
+              <div className="w-full bg-blue-400 rounded-t h-[80px] dark:bg-blue-600/40 relative group cursor-pointer hover:bg-blue-500">
+                <span className="absolute -top-5 left-1/2 -translate-x-1/2 hidden group-hover:block bg-slate-800 text-white px-1 rounded text-[8px]">45</span>
+              </div>
+              <span>Jul</span>
+            </div>
+            <div className="flex flex-col items-center flex-1 gap-1">
+              <div className="w-full bg-blue-600 rounded-t h-[110px] dark:bg-blue-500 relative group cursor-pointer hover:bg-blue-700">
+                <span className="absolute -top-5 left-1/2 -translate-x-1/2 hidden group-hover:block bg-slate-800 text-white px-1 rounded text-[8px]">87</span>
+              </div>
+              <span>Aug</span>
+            </div>
+          </Card.Body>
+        </Card>
+
+        <Card>
+          <Card.Header className="pb-2 border-b border-slate-100 mb-3 flex items-center gap-1.5">
+            <Users size={16} className="text-slate-400" />
+            <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider">User Roles Allocation</h3>
+          </Card.Header>
+          <Card.Body className="space-y-3.5 text-[11px] font-medium text-slate-600">
+            <div className="space-y-1">
+              <div className="flex justify-between">
+                <span>Businesses</span>
+                <span className="font-semibold text-slate-800">50%</span>
+              </div>
+              <div className="w-full bg-slate-100 rounded-full h-2.5 dark:bg-slate-800">
+                <div className="bg-emerald-500 h-2.5 rounded-full" style={{ width: "50%" }} />
+              </div>
+            </div>
+
+            <div className="space-y-1">
+              <div className="flex justify-between">
+                <span>Legal Metrology Officers</span>
+                <span className="font-semibold text-slate-800">25%</span>
+              </div>
+              <div className="w-full bg-slate-100 rounded-full h-2.5 dark:bg-slate-800">
+                <div className="bg-cyan-500 h-2.5 rounded-full" style={{ width: "25%" }} />
+              </div>
+            </div>
+
+            <div className="space-y-1">
+              <div className="flex justify-between">
+                <span>GATC Test Centres</span>
+                <span className="font-semibold text-slate-800">15%</span>
+              </div>
+              <div className="w-full bg-slate-100 rounded-full h-2.5 dark:bg-slate-800">
+                <div className="bg-purple-500 h-2.5 rounded-full" style={{ width: "15%" }} />
+              </div>
+            </div>
+
+            <div className="space-y-1">
+              <div className="flex justify-between">
+                <span>Administrators</span>
+                <span className="font-semibold text-slate-800">10%</span>
+              </div>
+              <div className="w-full bg-slate-100 rounded-full h-2.5 dark:bg-slate-800">
+                <div className="bg-slate-500 h-2.5 rounded-full" style={{ width: "10%" }} />
+              </div>
+            </div>
+          </Card.Body>
+        </Card>
+      </div>
 
       <div className="grid lg:grid-cols-3 gap-5">
         {/* Unassigned review queues */}

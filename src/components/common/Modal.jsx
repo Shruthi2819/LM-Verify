@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 import Button from "./Button";
 
@@ -34,7 +35,7 @@ function Modal({ isOpen, open, onClose, title, description, children, footer, si
 
   const widths = { sm: "max-w-sm", md: "max-w-lg", lg: "max-w-2xl", xl: "max-w-4xl" };
 
-  return (
+  return createPortal(
     <div
       className="fixed inset-0 z-50 flex items-center justify-center p-4"
       role="dialog"
@@ -43,15 +44,14 @@ function Modal({ isOpen, open, onClose, title, description, children, footer, si
     >
       {/* Backdrop */}
       <div
-        className="absolute inset-0 bg-slate-900/50 backdrop-blur-sm"
+        className="absolute inset-0 bg-slate-900/50 backdrop-blur-sm z-0"
         onClick={onClose}
       />
 
       {/* Panel */}
       <div
         className={[
-          "relative w-full bg-white rounded-xl shadow-xl z-10",
-          "animate-[fadeIn_150ms_ease]",
+          "relative w-full bg-white rounded-xl shadow-xl z-10 transition-all duration-200 transform scale-100",
           widths[size] || widths.md,
         ].join(" ")}
       >
@@ -84,7 +84,8 @@ function Modal({ isOpen, open, onClose, title, description, children, footer, si
           </div>
         )}
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
 

@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { lmoService } from "../../services/lmoService";
+import { certificateService } from "../../services/certificateService";
 import Card from "../../components/common/Card";
 import Button from "../../components/common/Button";
 import StatusBadge from "../../components/feedback/StatusBadge";
@@ -13,7 +14,7 @@ import Modal from "../../components/common/Modal";
 import { PanelSkeleton } from "../../components/common/SkeletonLoader";
 import { ROUTES, buildPath } from "../../config/routes";
 import { formatDate } from "../../utils/helpers";
-import { Scale, Calendar, User, FileText, FileClock, CheckCircle, XCircle } from "lucide-react";
+import { Scale, Calendar, User, FileText, FileClock, CheckCircle, XCircle, Award } from "lucide-react";
 import toast from "react-hot-toast";
 
 function ApplicationDetail() {
@@ -36,6 +37,9 @@ function ApplicationDetail() {
 
   // Loading states
   const [modalLoading, setModalLoading] = useState(false);
+  const [genModalOpen, setGenModalOpen] = useState(false);
+  const [genLoading, setGenLoading] = useState(false);
+  const [downloadLoading, setDownloadLoading] = useState(false);
 
   const loadApplication = async () => {
     try {
@@ -102,6 +106,32 @@ function ApplicationDetail() {
       toast.error(err.message || "Rejection failed.");
     } finally {
       setModalLoading(false);
+    }
+  };
+
+  const handleGenerateCertificate = async () => {
+    setGenLoading(true);
+    try {
+      await certificateService.generateCertificate(app.id);
+      toast.success("Certificate generated successfully and registered on the blockchain!");
+      setGenModalOpen(false);
+      loadApplication();
+    } catch (err) {
+      toast.error(err.message || "Failed to generate certificate.");
+    } finally {
+      setGenLoading(false);
+    }
+  };
+
+  const handleDownloadPdf = async () => {
+    setDownloadLoading(true);
+    try {
+      await certificateService.downloadCertificatePdf(app.certificateId);
+      toast.success("PDF Downloaded successfully!");
+    } catch (err) {
+      toast.error(err.message || "Failed to download PDF.");
+    } finally {
+      setDownloadLoading(false);
     }
   };
 
@@ -208,6 +238,75 @@ function ApplicationDetail() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Specifications detail cards */}
         <div className="lg:col-span-2 space-y-6">
+          {/* Certificate Action Card */}
+          {(app.status === "APPROVED" || app.status === "CERTIFICATE_GENERATED") && (
+            <Card className={app.status === "CERTIFICATE_GENERATED" ? "border-green-200 bg-green-50/15" : "border-blue-200 bg-blue-50/15"}>
+              <Card.Header className={`border-b ${app.status === "CERTIFICATE_GENERATED" ? "border-green-150" : "border-blue-150"} pb-3 mb-4 flex justify-between items-center`}>
+                <div className="flex items-center gap-2">
+                  <Award size={16} className={app.status === "CERTIFICATE_GENERATED" ? "text-green-700" : "text-blue-700"} />
+                  <h2 className="text-sm font-bold text-slate-800">Compliance Verification Certificate</h2>
+                </div>
+                <span className={`text-[10px] ${app.status === "CERTIFICATE_GENERATED" ? "bg-green-100 text-green-800" : "bg-blue-100 text-blue-800"} px-2 py-0.5 rounded font-bold`}>
+                  {app.status === "CERTIFICATE_GENERATED" ? "VALID & SIGNED" : "AWAITING GENERATION"}
+                </span>
+              </Card.Header>
+              <Card.Body className="space-y-4 text-xs">
+                {app.status === "CERTIFICATE_GENERATED" ? (
+                  <>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div>
+                        <span className="text-[10px] text-slate-400 font-medium uppercase">Certificate ID</span>
+                        <p className="font-mono font-semibold text-slate-800 mt-0.5">{app.certificateId}</p>
+                      </div>
+                      <div>
+                        <span className="text-[10px] text-slate-400 font-medium uppercase">Expiration Date</span>
+                        <p className="text-slate-800 font-semibold mt-0.5">{app.certificateExpiry ? formatDate(app.certificateExpiry) : "N/A"}</p>
+                      </div>
+                    </div>
+                    <div className="flex gap-2 pt-2 border-t border-green-100">
+                      <Button
+                        variant="primary"
+                        size="sm"
+                        onClick={() => navigate(buildPath(ROUTES.LMO_CERTIFICATE_DETAIL, { certificateId: app.certificateId }))}
+                      >
+                        View Certificate
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handleDownloadPdf}
+                        loading={downloadLoading}
+                      >
+                        Download PDF
+                      </Button>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="space-y-2">
+                      <div className="flex justify-between items-center text-slate-700">
+                        <span>Certificate Status:</span>
+                        <span className="font-semibold text-red-600">NOT GENERATED</span>
+                      </div>
+                      <p className="text-slate-500 text-[11px] leading-relaxed">
+                        This application has been approved. Generate the official digital compliance certificate to anchor the verification details on the ledger and issue it to the business.
+                      </p>
+                    </div>
+                    <div className="flex gap-2 pt-2 border-t border-blue-100">
+                      <Button
+                        variant="success"
+                        size="sm"
+                        onClick={() => setGenModalOpen(true)}
+                      >
+                        Generate Certificate
+                      </Button>
+                    </div>
+                  </>
+                )}
+              </Card.Body>
+            </Card>
+          )}
+
           {/* Business Details */}
           <Card>
             <Card.Header className="border-b border-slate-100 pb-3 mb-4">
@@ -355,6 +454,53 @@ function ApplicationDetail() {
             </Button>
           </div>
         </form>
+      </Modal>
+
+      {/* Certificate Generation Confirmation Modal */}
+      <Modal open={genModalOpen} onClose={() => setGenModalOpen(false)} title="Generate Digital Certificate">
+        <div className="space-y-4 text-xs select-none">
+          <p className="text-slate-600 leading-relaxed">
+            Are you sure you want to generate this compliance metrology certificate? Once generated, the record is finalized and cannot be modified.
+          </p>
+          <div className="border border-slate-200 rounded-lg overflow-hidden bg-slate-50/50 p-3 space-y-2.5">
+            <div className="flex justify-between">
+              <span className="text-slate-400">Application:</span>
+              <span className="font-mono font-semibold text-slate-800">{app.id}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-slate-400">Instrument:</span>
+              <span className="font-semibold text-slate-800">{app.instrumentName}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-slate-400">Serial Number:</span>
+              <span className="font-mono font-semibold text-slate-800">{app.instrumentSerial}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-slate-400">Verification Result:</span>
+              <span className="font-bold text-green-700 flex items-center gap-1">PASS</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-slate-400">Authorized Officer:</span>
+              <span className="font-semibold text-slate-800">{app.assignedOfficer || "Priya Sharma"}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-slate-400">Issue Date:</span>
+              <span className="font-semibold text-slate-800">{new Date().toLocaleDateString(undefined, { day: 'numeric', month: 'long', year: 'numeric' })}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-slate-400">Expiry Date:</span>
+              <span className="font-semibold text-slate-800">{new Date(Date.now() + 365*24*60*60*1000).toLocaleDateString(undefined, { day: 'numeric', month: 'long', year: 'numeric' })}</span>
+            </div>
+          </div>
+          <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
+            <Button variant="outline" size="sm" onClick={() => setGenModalOpen(false)} disabled={genLoading}>
+              Cancel
+            </Button>
+            <Button variant="success" size="sm" onClick={handleGenerateCertificate} loading={genLoading}>
+              Generate Certificate
+            </Button>
+          </div>
+        </div>
       </Modal>
     </div>
   );

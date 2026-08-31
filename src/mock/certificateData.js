@@ -5,6 +5,7 @@
 export const mockCertificates = [
   {
     id: "CERT-2026-000007",
+    applicationId: "APP-2026-00001",
     instrumentId: "INS-2026-00001",
     instrumentName: "Digital Weighing Scale",
     instrumentType: "Digital Weighing Scale",
@@ -25,6 +26,7 @@ export const mockCertificates = [
   },
   {
     id: "CERT-2026-000004",
+    applicationId: "APP-2026-00003",
     instrumentId: "INS-2026-00003",
     instrumentName: "Petrol Pump Meter",
     instrumentType: "Petrol Pump Meter",
@@ -45,6 +47,7 @@ export const mockCertificates = [
   },
   {
     id: "CERT-2025-000021",
+    applicationId: "APP-2026-00004",
     instrumentId: "INS-2026-00004",
     instrumentName: "Water Flow Meter",
     instrumentType: "Water Flow Meter",
@@ -62,5 +65,27 @@ export const mockCertificates = [
     txId: "0x999999abc123789abcdef123456789abcdef9999",
     network: "Ethereum Sepolia Testnet",
     verificationStatus: "MATCHED"
+  },
+  {
+    id: "CERT-2025-000019",
+    applicationId: "APP-2026-00005",
+    instrumentId: "INS-2026-00005",
+    instrumentName: "Commercial Counter Scale",
+    instrumentType: "Counter Scale",
+    serialNumber: "CS-2024-GH7890",
+    capacity: "30 kg",
+    businessName: "Acme Weighing Solutions Pvt. Ltd.",
+    address: "Unit 4, MIDC Industrial Area, Pune, Maharashtra - 411019",
+    issuedDate: "2024-05-10",
+    expiryDate: "2025-05-09",
+    status: "Revoked",
+    revocationReason: "Sealing wire tampering detected during statutory surprise audit",
+    issuingOfficer: "Off. Priya Sharma",
+    designation: "Legal Metrology Officer, Pune East",
+    department: "Department of Legal Metrology, Government of Maharashtra",
+    blockchainHash: "0x8e7d6c5b4a3f2e1d0c9b8a7f6e5d4c3b2a1f0e9d",
+    txId: "0x777777abc123789abcdef123456789abcdef7777",
+    network: "Ethereum Sepolia Testnet",
+    verificationStatus: "MISMATCHED"
   }
 ];

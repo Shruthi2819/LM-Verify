@@ -2,6 +2,8 @@ import { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { lmoService } from "../../services/lmoService";
 import { aiService } from "../../services/aiService";
+import { useNetwork } from "../../context/NetworkContext";
+import { indexedDBService } from "../../services/indexedDBService";
 import Card from "../../components/common/Card";
 import Input from "../../components/common/Input";
 import Textarea from "../../components/common/Textarea";
@@ -11,18 +13,34 @@ import FileUpload from "../../components/common/FileUpload";
 import Breadcrumbs from "../../components/navigation/Breadcrumbs";
 import Modal from "../../components/common/Modal";
 import AIVerificationAssistant from "../../components/lmo/AIVerificationAssistant";
+import AIVisionInspector from "../../components/common/AIVisionInspector";
+import TimeVerifiedEvidence from "../../components/common/TimeVerifiedEvidence";
+import EvidenceIntegrityCard from "../../components/common/EvidenceIntegrityCard";
+import VoiceAssistant from "../../components/common/VoiceAssistant";
+import { useAuth } from "../../hooks/useAuth";
 import { PanelSkeleton } from "../../components/common/SkeletonLoader";
 import { ROUTES, buildPath } from "../../config/routes";
 import { ACCEPTED_DOC_TYPES } from "../../utils/constants";
 import { formatDate } from "../../utils/helpers";
-import { Scale, Clock, MapPin, Camera, X } from "lucide-react";
+import { Scale, Clock, MapPin, Camera, X, Wifi, WifiOff, ShieldCheck, RefreshCw } from "lucide-react";
 import toast from "react-hot-toast";
 
 function InspectionDetail() {
   const { inspectionId } = useParams();
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [ins, setIns] = useState(null);
   const [loading, setLoading] = useState(true);
+
+  // Time-Verified Start Timestamp (authoritative server-side simulation with localStorage cache)
+  const [serverRecordedAt] = useState(() => {
+    const cacheKey = `inspection_start_time_${inspectionId}`;
+    const cached = localStorage.getItem(cacheKey);
+    if (cached) return cached;
+    const val = new Date().toISOString();
+    localStorage.setItem(cacheKey, val);
+    return val;
+  });
 
   // Form states
   const [checklist, setChecklist] = useState([]);
@@ -32,6 +50,13 @@ function InspectionDetail() {
   const [photos, setPhotos] = useState([]);
   const [result, setResult] = useState(""); // PASS, FAIL
 
+  // Connection & Offline states
+  const { isOnline: rawOnline, updatePendingCount } = useNetwork();
+  const [simulatedOffline, setSimulatedOffline] = useState(false);
+  const isOnline = rawOnline && !simulatedOffline;
+  const [isAvailableOffline, setIsAvailableOffline] = useState(false);
+  const [syncQueueCount, setSyncQueueCount] = useState(0);
+
   // AI Assistant states
   const [aiAnalysis, setAiAnalysis] = useState(null);
   const [aiLoading, setAiLoading] = useState(false);
@@ -40,7 +65,19 @@ function InspectionDetail() {
     { time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }), message: "Initialized verification model." }
   ]);
 
-  // Uploader and submission loader
+  const [aiVisionReport, setAiVisionReport] = useState(null);
+
+  const handleConfirmAiVision = (report) => {
+    setAiVisionReport(report);
+    setAiHistory((prev) => [
+      ...prev,
+      {
+        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        message: `Confirmed AI Vision extraction. Result: ${report.comparison.overallResult}`
+      }
+    ]);
+  };
+
   const [uploading, setUploading] = useState(false);
   const [submitLoading, setSubmitLoading] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -51,15 +88,62 @@ function InspectionDetail() {
   useEffect(() => {
     async function loadInspection() {
       try {
-        const data = await lmoService.getInspection(inspectionId);
-        setIns(data);
+        let data = null;
+        let localData = null;
+        try {
+          localData = await indexedDBService.getInspection(inspectionId);
+        } catch (e) {
+          console.warn("Could not check local IndexedDB:", e);
+        }
+
+        if (localData) {
+          setIsAvailableOffline(true);
+        }
+
+        if (isOnline) {
+          data = await lmoService.getInspection(inspectionId);
+          setIns(data);
+          // Auto-save a copy locally if marked available offline
+          if (localData && data) {
+            try {
+              await indexedDBService.saveInspection({ ...data, isAvailableOffline: true });
+            } catch (e) {
+              console.warn("Could not save to IndexedDB:", e);
+            }
+          }
+        } else {
+          if (localData) {
+            data = localData;
+            setIns(data);
+            toast.success("Loaded inspection details from local offline cache.");
+          } else {
+            toast.error("This inspection is not available offline. Please download it first when online.");
+            navigate(ROUTES.LMO_SCHEDULE);
+            return;
+          }
+        }
+
+        if (!data) {
+          throw new Error("No inspection data found.");
+        }
+
         setChecklist(data.checklist || []);
         setMeasurements(data.measurements || []);
         setObservations(data.observations || "");
         setRemarks(data.remarks || "");
         setResult(data.result || "");
         setPhotos(data.photos || []);
+
+        // Load sync queue operations count
+        try {
+          const queue = await indexedDBService.getSyncQueue();
+          const pending = queue.filter(op => op.syncStatus === "PENDING_SYNC" || op.syncStatus === "SYNC_FAILED").length;
+          setSyncQueueCount(pending);
+        } catch (e) {
+          console.warn("Could not get sync queue:", e);
+        }
       } catch (err) {
+        console.error("Failed to load inspection details:", err);
         toast.error("Failed to load inspection details.");
         navigate(ROUTES.LMO_SCHEDULE);
       } finally {
@@ -67,7 +151,7 @@ function InspectionDetail() {
       }
     }
     loadInspection();
-  }, [inspectionId]);
+  }, [inspectionId, isOnline]);
 
   // Dynamic AI trigger function
   const runAIAnalysis = async (currentChecklist, currentMeasurements, currentPhotos) => {
@@ -220,6 +304,122 @@ function InspectionDetail() {
     toast.success("Discrepancy warning marked as reviewed.");
   };
 
+  // Debounced Autosave draft state to IndexedDB inspections store
+  const [autosaveState, setAutosaveState] = useState("Saved");
+  useEffect(() => {
+    if (loading || !ins) return;
+    setAutosaveState("Saving...");
+    const timer = setTimeout(async () => {
+      try {
+        const record = {
+          ...ins,
+          inspectionId: ins.id,
+          checklist,
+          measurements,
+          observations,
+          remarks,
+          result,
+          photos,
+          offlineModifiedAt: new Date().toISOString()
+        };
+        await indexedDBService.saveInspection(record);
+        setAutosaveState("Saved");
+      } catch (err) {
+        setAutosaveState("Storage Error");
+      }
+    }, 1000);
+
+    return () => clearTimeout(timer);
+  }, [checklist, measurements, observations, remarks, result, photos, loading, ins]);
+
+  const handleVoiceConfirm = (payload) => {
+    const { parameterId, parameterType, value, unit, result: voiceVerdict, remarks: voiceRemarks, transcript: voiceTranscript } = payload;
+    
+    if (parameterType === "measurement") {
+      setMeasurements((prev) =>
+        prev.map((m) => {
+          if (m.id !== parameterId) return m;
+          
+          const std = parseFloat(m.standardValue);
+          const obs = parseFloat(value);
+          let err = null;
+          let verd = m.result;
+
+          if (!isNaN(std) && !isNaN(obs)) {
+            err = (obs - std).toFixed(2);
+            // standard tolerances 0.25 (Class III weights)
+            verd = Math.abs(obs - std) <= 0.25 ? "PASS" : "FAIL";
+          }
+
+          return {
+            ...m,
+            observedValue: value,
+            error: err,
+            result: verd,
+            source: "voice",
+            transcript: voiceTranscript
+          };
+        })
+      );
+    } else {
+      setChecklist((prev) =>
+        prev.map((c) => {
+          if (c.id !== parameterId) return c;
+          return {
+            ...c,
+            value: voiceVerdict,
+            source: "voice",
+            transcript: voiceTranscript
+          };
+        })
+      );
+    }
+
+    if (voiceRemarks) {
+      setRemarks((prev) => (prev ? `${prev}\n${voiceRemarks}` : voiceRemarks));
+    }
+
+    // Trace update in AI assistant logs feed
+    setAiHistory((prev) => [
+      ...prev,
+      {
+        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        message: `Voice-Assisted update confirmed: Matched to ID ${parameterId}`
+      }
+    ]);
+  };
+
+  // Toggle Offline availability for caching the current LMO inspection target
+  const handleToggleOfflineAvailability = async () => {
+    try {
+      if (isAvailableOffline) {
+        // Delete cache
+        await indexedDBService.deleteInspection(ins.id);
+        setIsAvailableOffline(false);
+        toast.success("Removed local offline cache for this inspection.");
+      } else {
+        // Save cache
+        const record = {
+          ...ins,
+          inspectionId: ins.id,
+          checklist,
+          measurements,
+          observations,
+          remarks,
+          result,
+          photos,
+          isAvailableOffline: true,
+          cachedAt: new Date().toISOString()
+        };
+        await indexedDBService.saveInspection(record);
+        setIsAvailableOffline(true);
+        toast.success("This inspection is now cached and available offline!");
+      }
+    } catch (e) {
+      toast.error("Failed to update offline cache.");
+    }
+  };
+
   const handleSubmit = async () => {
     // 1. Checklist verification checks
     const incompleteChecklist = checklist.some(c => !c.value);
@@ -237,13 +437,7 @@ function InspectionDetail() {
       return;
     }
 
-    // 3. Human-in-the-loop: Verify LMO has reviewed all critical AI warnings
-    const unreviewedWarning = aiWarnings.some((w) => w.status === "OPEN");
-    if (unreviewedWarning) {
-      toast.error("Please review and acknowledge all active AI warnings in the assistant panel before submitting.");
-      setConfirmOpen(false);
-      return;
-    }
+
 
     if (!result) {
       toast.error("Please determine a final verification result (PASS/FAIL).");
@@ -267,12 +461,70 @@ function InspectionDetail() {
         result,
         photos,
         aiSummary: aiAnalysis?.summary || "",
-        aiModelUsed: aiAnalysis?.modelName || ""
+        aiModelUsed: aiAnalysis?.modelName || "",
+        aiVisionReport,
+        timeVerifiedMetadata: {
+          inspectionId: ins.id,
+          applicationId: ins.applicationId,
+          instrumentId: ins.instrumentId,
+          officerName: user?.name,
+          officerId: user?.officerId || user?.id,
+          officerRole: user?.role,
+          serverRecordedAt,
+          clientCapturedAt: new Date().toISOString()
+        }
       };
-      await lmoService.submitInspection(ins.id, payload);
-      toast.success("Inspection report submitted!");
-      setConfirmOpen(false);
-      navigate(buildPath(ROUTES.LMO_APPLICATION_DETAIL, { applicationId: ins.applicationId }));
+
+      if (!isOnline) {
+        // Construct the offline operation payload
+        const opId = "OP-" + crypto.randomUUID();
+        const baseVersion = ins.serverVersion || ins.version || 1;
+        const localVer = baseVersion + 1;
+
+        const op = {
+          operationId: opId,
+          inspectionId: ins.id,
+          actorRole: "LMO",
+          actorName: user?.name || "LMO Officer",
+          createdAt: new Date().toISOString(),
+          syncStatus: "PENDING_SYNC",
+          localVersion: localVer,
+          baseServerVersion: baseVersion,
+          payload: payload,
+          integrityStatus: "PENDING"
+        };
+
+        // Cache updated state locally to prevent loss on refresh
+        const updatedInspection = {
+          ...ins,
+          status: "COMPLETED",
+          checklist,
+          measurements,
+          observations,
+          remarks,
+          result,
+          photos,
+          localVersion: localVer,
+          syncStatus: "PENDING_SYNC"
+        };
+
+        await indexedDBService.saveInspection(updatedInspection);
+        await indexedDBService.addToSyncQueue(op);
+        await updatePendingCount();
+
+        toast.success("Saved locally. Verification report queued for sync.");
+        setConfirmOpen(false);
+        navigate(ROUTES.LMO_SCHEDULE);
+      } else {
+        await lmoService.submitInspection(ins.id, payload);
+        
+        // Remove from local IndexedDB if cached
+        await indexedDBService.deleteInspection(ins.id);
+        
+        toast.success("Inspection report submitted!");
+        setConfirmOpen(false);
+        navigate(buildPath(ROUTES.LMO_APPLICATION_DETAIL, { applicationId: ins.applicationId }));
+      }
     } catch (err) {
       toast.error(err.message || "Failed to submit inspection.");
     } finally {
@@ -316,17 +568,48 @@ function InspectionDetail() {
             <p className="text-[10px] text-slate-500 font-mono mt-0.5">INS ID: {ins.id} · APP ID: {ins.applicationId}</p>
           </div>
         </div>
-        <div className="flex items-center gap-3 text-xs text-slate-400 font-medium">
-          <span className="flex items-center gap-0.5"><Clock size={12} /> {ins.scheduledTime}</span>
-          <span className="flex items-center gap-0.5"><MapPin size={12} /> {ins.location.split(",")[0]}</span>
+        <div className="flex items-center gap-3 flex-wrap text-xs font-semibold">
+          {/* Connection status badge */}
+          <button
+            type="button"
+            onClick={() => setSimulatedOffline(prev => !prev)}
+            className={["flex items-center gap-1 text-[11px] font-bold px-2 py-1 rounded border cursor-pointer transition-colors", isOnline ? "bg-green-50 text-green-700 border-green-200 hover:bg-green-100" : "bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100"].join(" ")}
+          >
+            {isOnline ? <Wifi size={12} /> : <WifiOff size={12} />}
+            {isOnline ? "ONLINE" : "OFFLINE (Simulated)"}
+          </button>
+
+          {/* Make available offline cache toggle */}
+          {rawOnline && (
+            <button
+              type="button"
+              onClick={handleToggleOfflineAvailability}
+              className={["flex items-center gap-1 text-[11px] font-bold px-2 py-1 rounded border cursor-pointer transition-colors", isAvailableOffline ? "bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100" : "bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100"].join(" ")}
+            >
+              <ShieldCheck size={12} className="text-blue-700" />
+              {isAvailableOffline ? "✓ AVAILABLE OFFLINE" : "DOWNLOAD OFFLINE"}
+            </button>
+          )}
+
+          {/* Sync operations indicator */}
+          {syncQueueCount > 0 && (
+            <span className="flex items-center gap-1 text-[11px] font-bold bg-amber-50 text-amber-700 border border-amber-200 px-2 py-1 rounded">
+              <RefreshCw size={12} /> Sync Queue: {syncQueueCount} pending
+            </span>
+          )}
+
+          {/* Autosave status indicator */}
+          <span className="text-[11px] font-semibold bg-slate-50 text-slate-500 border border-slate-200 px-2 py-1 rounded">
+            {autosaveState === "Saving..." ? "Saving..." : "✓ Saved locally"}
+          </span>
+
+          <span className="flex items-center gap-0.5 text-slate-400"><Clock size={12} /> {ins.scheduledTime}</span>
+          <span className="flex items-center gap-0.5 text-slate-400"><MapPin size={12} /> {ins.location.split(",")[0]}</span>
         </div>
       </div>
 
-      {/* Responsive Two-Column Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        
-        {/* Left Column (2/3 width) - Inspection details entries */}
-        <div className="lg:col-span-2 space-y-6">
+      {/* Responsive Column Container */}
+      <div className="space-y-6 max-w-4xl mx-auto">
           {/* Device characteristics card */}
           <Card>
             <Card.Header className="border-b border-slate-100 pb-2 mb-3">
@@ -351,6 +634,55 @@ function InspectionDetail() {
               </div>
             </Card.Body>
           </Card>
+
+          {/* AI Vision & OCR Inspector */}
+          <AIVisionInspector
+            registeredDb={{
+              serialNumber: ins.instrumentSerial,
+              manufacturer: ins.instrumentManufacturer || "Avery Weigh-Tronix",
+              model: ins.instrumentModel || ins.instrumentId,
+              capacity: ins.capacity || "1000 kg"
+            }}
+            onConfirmResults={handleConfirmAiVision}
+          />
+
+          {/* Time-Verified Inspection & Evidence Traceability */}
+          <TimeVerifiedEvidence
+            inspectionId={ins.id}
+            applicationId={ins.applicationId}
+            instrumentId={ins.instrumentId}
+            officerName={user?.name || "Priya Sharma"}
+            officerRole={user?.role || "LMO"}
+            officerId={user?.officerId || "LMO-MH-44012"}
+            startedAt={serverRecordedAt}
+            timelineEvents={[
+              {
+                event: "INSPECTION_STARTED",
+                time: new Date(serverRecordedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                detail: `Inspection session initialized by LMO ${user?.name || "Priya Sharma"}`
+              },
+              ...(checklist.some(c => c.value) ? [{
+                event: "PHYSICAL_CHECKLIST_UPDATED",
+                time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                detail: "Physical condition and sealing verification items logged."
+              }] : []),
+              ...(measurements.some(m => m.observedValue !== null && m.observedValue !== "") ? [{
+                event: "CALIBRATION_MEASUREMENTS",
+                time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                detail: "Standard weights tolerance values recorded."
+              }] : []),
+              ...(photos.length > 0 ? [{
+                event: "EVIDENCE_CAPTURED",
+                time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                detail: `${photos.length} evidence photographs attached to inspection session.`
+              }] : []),
+              ...(aiVisionReport ? [{
+                event: "AI_ANALYSIS_COMPLETED",
+                time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                detail: `OCR Serial Match Result: ${aiVisionReport.comparison.serialMatch ? "MATCH" : "MISMATCH"}`
+              }] : [])
+            ]}
+          />
 
           {/* Physical Checklist */}
           <Card>
@@ -504,6 +836,13 @@ function InspectionDetail() {
             />
           </Card>
 
+          {/* Tamper-Evident Evidence Chain Integrity Card */}
+          <EvidenceIntegrityCard
+            inspectionId={ins.id}
+            applicationId={ins.applicationId}
+            certificateId={ins.certificateId}
+          />
+
           {/* Submission Trigger */}
           <Button
             variant="success"
@@ -513,19 +852,6 @@ function InspectionDetail() {
           >
             Submit Inspection Report
           </Button>
-        </div>
-
-        {/* Right Column (1/3 width) - AI Verification Assistant Panel */}
-        <div>
-          <AIVerificationAssistant
-            analysis={aiAnalysis}
-            loading={aiLoading}
-            warnings={aiWarnings}
-            onAcknowledgeWarning={handleAcknowledgeWarning}
-            activityHistory={aiHistory}
-            instrumentType={ins.instrumentName}
-          />
-        </div>
       </div>
 
       {/* Confirmation Dialog */}
@@ -534,11 +860,7 @@ function InspectionDetail() {
           <p className="text-slate-600 leading-relaxed">
             Are you sure you want to submit this inspection report? The observations, verification readings, and AI reviewed parameters will be finalized.
           </p>
-          {aiWarnings.some(w => w.status === "OPEN") && (
-            <p className="text-red-600 font-bold">
-              ⚠ WARNING: You have unreviewed AI warnings. Please review them before submission.
-            </p>
-          )}
+
           <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
             <Button variant="outline" size="sm" onClick={() => setConfirmOpen(false)} disabled={submitLoading}>
               Cancel
